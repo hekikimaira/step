@@ -223,6 +223,7 @@
             </div>
         </div>
         <div class="control-area">
+            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.1.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
             <div class="section">
                 <div class="section-title">プロジェクト</div>
                 <div style="display:flex;gap:8px">
@@ -338,6 +339,7 @@
                 <button class="nav-btn" id="nextBtn">›</button>
             </div>
             <div class="preview-info" id="previewInfo">0 / 0</div>
+            <div id="debugLog" class="hidden" style="position:absolute;bottom:40px;left:10px;right:10px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.9);color:#0f0;font-size:10px;font-family:monospace;padding:8px;border:1px solid #0f0;"></div>
         </div>
         <div class="empty-msg" id="emptyMsg">シーンがありません</div>
     </div>
@@ -967,9 +969,24 @@ function findSceneByLabel(label) {
 }
 
 async function showPreview() {
+    const debugLog = $('debugLog');
+    const isDebug = $('debugMode')?.checked;
+    
+    function log(msg) {
+        if (isDebug && debugLog) {
+            debugLog.classList.remove('hidden');
+            debugLog.innerHTML += `${new Date().toLocaleTimeString()}: ${msg}<br>`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        console.log('[Preview]', msg);
+    }
+    
+    log(`showPreview called. scenes.length=${scenes.length}, previewIndex=${previewIndex}`);
+    
     choiceOverlay.classList.add('hidden');
     
     if (!scenes.length) {
+        log('No scenes');
         previewInfo.textContent = '0 / 0';
         previewBgEl.innerHTML = '';
         previewName.textContent = '';
@@ -981,29 +998,37 @@ async function showPreview() {
     previewIndex = Math.max(0, Math.min(previewIndex, scenes.length - 1));
     const s = scenes[previewIndex];
     
+    log(`Scene ${previewIndex}: id=${s.id}, name=${s.name}, bgUrl=${s.bgUrl ? 'yes' : 'no'}, cmd=${s.cmd || 'none'}`);
+    
     // Run commands first (may skip or jump)
-    const result = await runCmdSequence(s.cmd, previewFlash, previewCanvas, true);
-    
-    if (result === 'SKIP') {
-        // Skip this scene
-        if (previewIndex < scenes.length - 1) {
-            previewIndex++;
-            showPreview();
+    try {
+        const result = await runCmdSequence(s.cmd, previewFlash, previewCanvas, true);
+        log(`Cmd result: ${JSON.stringify(result)}`);
+        
+        if (result === 'SKIP') {
+            log('SKIP triggered');
+            if (previewIndex < scenes.length - 1) {
+                previewIndex++;
+                showPreview();
+            }
+            return;
         }
-        return;
-    }
-    
-    if (result && result.goto) {
-        // Jump to label
-        const idx = findSceneByLabel(result.goto);
-        if (idx >= 0) {
-            previewIndex = idx;
-            showPreview();
+        
+        if (result && result.goto) {
+            const idx = findSceneByLabel(result.goto);
+            log(`GOTO ${result.goto} -> index ${idx}`);
+            if (idx >= 0) {
+                previewIndex = idx;
+                showPreview();
+            }
+            return;
         }
-        return;
+    } catch (e) {
+        log(`ERROR in runCmdSequence: ${e.message}`);
     }
     
     // Display scene
+    log('Displaying scene...');
     previewInfo.textContent = `${previewIndex + 1} / ${scenes.length}`;
     previewBgEl.innerHTML = s.bgUrl ? `<img src="${s.bgUrl}">` : '';
     previewName.textContent = s.name || '';
@@ -1020,8 +1045,11 @@ async function showPreview() {
     
     // Show choices if this is a choice scene
     if (s.isChoice && s.choices && s.choices.length > 0) {
+        log(`Showing ${s.choices.length} choices`);
         showChoices(s.choices);
     }
+    
+    log('showPreview done');
 }
 
 function showChoices(choices) {
