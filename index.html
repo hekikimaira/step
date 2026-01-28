@@ -153,8 +153,8 @@
         .nav-btn { background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 32px; padding: 16px 24px; cursor: pointer; border-radius: 8px; }
         .nav-btn:hover { background: rgba(255,255,255,0.2); }
         .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
-        .preview-frame { flex: 1; height: 100%; max-height: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; overflow: hidden; }
-        .preview-frame .preview-canvas { max-height: 100%; max-width: 100%; height: auto; width: auto; }
+        .preview-frame { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .preview-frame .preview-canvas { height: 100%; aspect-ratio: 832/1216; max-height: calc(100vh - 140px); }
         .preview-info { padding: 12px; color: #888; font-size: 14px; }
         .empty-msg { text-align: center; padding: 60px; color: #666; }
         .hidden { display: none !important; }
@@ -165,7 +165,7 @@
             .preview-nav { padding: 8px; gap: 8px; }
             .nav-btn { font-size: 20px; padding: 10px 14px; }
             .preview-frame { padding: 4px; }
-            .preview-frame .preview-canvas { max-height: calc(100vh - 120px); }
+            .preview-frame .preview-canvas { max-height: calc(100vh - 130px); }
             .preview-info { padding: 8px; font-size: 12px; }
         }
         
@@ -1099,6 +1099,20 @@ previewCanvas.addEventListener('click', e => {
         showPreview(); 
     }
 });
+
+// Prev/Next buttons
+prevBtn.onclick = () => {
+    if (previewIndex > 0) {
+        previewIndex--;
+        showPreview();
+    }
+};
+nextBtn.onclick = () => {
+    if (previewIndex < scenes.length - 1) {
+        previewIndex++;
+        showPreview();
+    }
+};
 
 $('clearAll').onclick = async () => { 
     if (!confirm('全削除しますか？')) return; 
