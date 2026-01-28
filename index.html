@@ -154,7 +154,7 @@
         .nav-btn:hover { background: rgba(255,255,255,0.2); }
         .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .preview-frame { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .preview-frame .preview-canvas { height: 100%; aspect-ratio: 832/1216; max-height: calc(100vh - 140px); }
+        .preview-frame .preview-canvas { width: 100%; max-width: calc((100vh - 140px) * 832 / 1216); height: auto; aspect-ratio: 832/1216; }
         .preview-info { padding: 12px; color: #888; font-size: 14px; }
         .empty-msg { text-align: center; padding: 60px; color: #666; }
         .hidden { display: none !important; }
@@ -162,10 +162,10 @@
         /* スマホ用プレビューモード */
         @media (max-width: 600px) {
             .preview-exit-zone { height: 50px; font-size: 11px; }
-            .preview-nav { padding: 8px; gap: 8px; }
+            .preview-nav { padding: 8px; gap: 8px; flex-direction: column; }
             .nav-btn { font-size: 20px; padding: 10px 14px; }
-            .preview-frame { padding: 4px; }
-            .preview-frame .preview-canvas { max-height: calc(100vh - 130px); }
+            .preview-frame { padding: 4px; width: 100%; }
+            .preview-frame .preview-canvas { width: 90%; max-width: none; height: auto; }
             .preview-info { padding: 8px; font-size: 12px; }
         }
         
