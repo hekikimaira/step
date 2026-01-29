@@ -223,7 +223,7 @@
             </div>
         </div>
         <div class="control-area">
-            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.2.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
+            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.3.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
             <div class="section">
                 <div class="section-title">プロジェクト</div>
                 <div style="display:flex;gap:8px">
@@ -243,6 +243,19 @@
                     <button class="btn" id="modeADV" style="flex:1;background:#4ecdc4;color:#000">ADV（下部）</button>
                     <button class="btn" id="modeNVL" style="flex:1;background:#333;color:#888">NVL（全画面）</button>
                 </div>
+            </div>
+            <div class="section">
+                <div class="section-title">画面切り替え効果</div>
+                <select id="transitionSelect" style="width:100%;background:#333;border:none;border-radius:4px;padding:10px;color:#eee;font-size:14px;">
+                    <option value="none">なし</option>
+                    <option value="fade">フェード</option>
+                    <option value="fadeBlack">暗転フェード</option>
+                    <option value="fadeWhite">ホワイトアウト</option>
+                    <option value="slideLeft">スライド（左）</option>
+                    <option value="slideRight">スライド（右）</option>
+                    <option value="slideUp">スライド（上）</option>
+                    <option value="slideDown">スライド（下）</option>
+                </select>
             </div>
             <div class="section">
                 <div class="section-title">ラベル（ジャンプ先として使用）</div>
@@ -392,7 +405,7 @@ async function saveToIndexedDB() {
             id: 'main',
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
-                bg: s.bg, textMode: s.textMode, isChoice: s.isChoice, choices: s.choices
+                bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
             })),
             imageCounter,
             choiceCounter
@@ -440,7 +453,7 @@ async function saveToHistory() {
             timestamp: Date.now(),
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
-                bg: s.bg, textMode: s.textMode, isChoice: s.isChoice, choices: s.choices
+                bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
             })),
             images: historyImages,
             imageCounter,
@@ -577,11 +590,28 @@ async function loadFromIndexedDB() {
     } catch (e) { console.warn('Auto load error:', e); }
 }
 
-// Debounced save
-let saveTimer = null;
-function debouncedSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(saveToIndexedDB, 1000);
+// Auto save with simple throttle (not debounce)
+let isSaving = false;
+let pendingSave = false;
+
+async function autoSave() {
+    if (isSaving) {
+        pendingSave = true;
+        return;
+    }
+    isSaving = true;
+    try {
+        await saveToIndexedDB();
+    } catch (e) {
+        console.error('Auto save failed:', e);
+    }
+    isSaving = false;
+    
+    // If there was a pending save during save, do it now
+    if (pendingSave) {
+        pendingSave = false;
+        setTimeout(autoSave, 100);
+    }
 }
 
 // History save with 1 minute throttle
@@ -598,7 +628,7 @@ async function throttledHistorySave() {
 
 // Combined save: auto save + throttled history
 async function saveWithHistory() {
-    debouncedSave();
+    autoSave();
     await throttledHistorySave();
 }
 
@@ -949,6 +979,7 @@ saveBtn.onclick = () => {
         bg: currentBgFile,
         bgUrl: currentBgUrl,
         textMode: currentTextMode,
+        transition: $('transitionSelect').value,
         isChoice: isChoiceCheck.checked,
         choices: isChoiceCheck.checked ? [...currentChoices] : []
     };
@@ -976,6 +1007,7 @@ function resetEditor() {
     currentChoices = [];
     choiceOptions.innerHTML = '';
     setTextMode('adv');
+    $('transitionSelect').value = 'none';
     saveBtn.textContent = '＋ 新規シーン追加'; saveBtn.classList.remove('btn-update'); saveBtn.classList.add('btn-save');
     cancelBtn.classList.add('hidden');
 }
@@ -990,6 +1022,7 @@ function loadToEditor(scene) {
     else { editorBg.innerHTML = ''; imgBtn.textContent = '画像を選択'; imgBtn.classList.remove('loaded'); }
     
     setTextMode(scene.textMode || 'adv');
+    $('transitionSelect').value = scene.transition || 'none';
     
     isChoiceCheck.checked = scene.isChoice || false;
     currentChoices = scene.choices ? [...scene.choices] : [];
@@ -1548,7 +1581,8 @@ $('saveZip').onclick = async () => {
         const data = { 
             scenes: scenes.map(s => ({ 
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, 
-                label: s.label, bg: s.bg, textMode: s.textMode, isChoice: s.isChoice, choices: s.choices 
+                label: s.label, bg: s.bg, textMode: s.textMode, transition: s.transition,
+                isChoice: s.isChoice, choices: s.choices 
             }))
         };
         zip.file('data.json', JSON.stringify(data, null, 2));

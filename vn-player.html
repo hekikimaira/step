@@ -43,6 +43,23 @@
         .game-canvas.shake{animation:shake 0.3s ease-in-out}
         @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
         
+        /* Transition overlay */
+        .transition-overlay{position:absolute;inset:0;z-index:15;pointer-events:none;opacity:0}
+        .transition-overlay.black{background:#000}
+        .transition-overlay.white{background:#fff}
+        
+        /* Transition animations */
+        .game-bg.trans-fade{animation:transFade 0.5s ease-out}
+        @keyframes transFade{0%{opacity:0}100%{opacity:1}}
+        .game-bg.trans-slideLeft{animation:transSlideLeft 0.4s ease-out}
+        @keyframes transSlideLeft{0%{transform:translateX(100%)}100%{transform:translateX(0)}}
+        .game-bg.trans-slideRight{animation:transSlideRight 0.4s ease-out}
+        @keyframes transSlideRight{0%{transform:translateX(-100%)}100%{transform:translateX(0)}}
+        .game-bg.trans-slideUp{animation:transSlideUp 0.4s ease-out}
+        @keyframes transSlideUp{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
+        .game-bg.trans-slideDown{animation:transSlideDown 0.4s ease-out}
+        @keyframes transSlideDown{0%{transform:translateY(-100%)}100%{transform:translateY(0)}}
+        
         .text-display{position:absolute;bottom:5%;left:4%;right:4%;z-index:5;transition:opacity 0.3s}
         .text-display.hidden-text{opacity:0;pointer-events:none}
         .text-display.nvl-mode{top:0;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:flex-start;padding:3% 4%;overflow-y:auto}
@@ -145,6 +162,7 @@
     <div class="game-canvas" id="gameCanvas">
         <div class="game-bg" id="gameBg"></div>
         <div class="flash-overlay" id="flashOverlay"></div>
+        <div class="transition-overlay" id="transitionOverlay"></div>
         <div class="text-display" id="textDisplay">
             <div class="char-name size-m" id="charName"></div>
             <div class="dialogue size-m" id="dialogue"></div>
@@ -238,7 +256,36 @@ function updateNewScenesButton(){const b=$('newScenesBtn');if(newSceneUUIDs.size
 function startGame(from=0){currentIndex=from;flags={};lastChoiceId=null;backlog=[];topMenu.classList.add('hidden');gameContainer.classList.remove('hidden');isGalleryMode=false;stopAuto();stopSkip();showScene()}
 function continueGame(){if(loadSlot(0)){topMenu.classList.add('hidden');gameContainer.classList.remove('hidden');isGalleryMode=false;stopAuto();stopSkip();showScene()}}
 function goToNewScenes(){const idx=scenes.findIndex(s=>newSceneUUIDs.has(s.uuid));if(idx>=0){startGame(idx);newScenesBanner.classList.remove('hidden')}}
-async function showScene(){choiceOverlay.classList.add('hidden');clearTimeout(textAnimTimer);isTextAnimating=false;if(currentIndex<0||currentIndex>=scenes.length){returnToTitle();return}const scene=scenes[currentIndex];seenScenes.add(scene.uuid);newSceneUUIDs.delete(scene.uuid);if(newSceneUUIDs.size===0)newScenesBanner.classList.add('hidden');const result=await runCmdSequence(scene.cmd);if(result==='SKIP'){currentIndex++;showScene();return}if(result&&result.goto){const idx=findSceneByLabel(result.goto);if(idx>=0){currentIndex=idx;showScene();return}}gameBg.innerHTML=scene.bgUrl?`<img src="${scene.bgUrl}">`:'';charName.textContent=scene.name||'';charName.style.display=scene.name?'block':'none';animateText(scene.text||'');if(scene.textMode==='nvl'){textDisplay.classList.add('nvl-mode')}else{textDisplay.classList.remove('nvl-mode')}if(scene.name||scene.text){backlog.push({index:currentIndex,name:scene.name||'',text:scene.text||''});if(backlog.length>100)backlog.shift()}if(scene.isChoice&&scene.choices&&scene.choices.length>0){if(isSkipMode||textSpeed===100){showChoices(scene.choices)}else{setTimeout(()=>showChoices(scene.choices),getTextAnimDuration(scene.text||''))}stopAuto();stopSkip()}if(!isGalleryMode)autoSave();if(isAutoMode&&!scene.isChoice){autoTimer=setTimeout(()=>{if(isAutoMode)nextScene()},getTextAnimDuration(scene.text||'')+autoSpeed)}if(isSkipMode&&!scene.isChoice&&seenScenes.has(scene.uuid)){skipTimer=setTimeout(()=>{if(isSkipMode)nextScene()},50)}else if(isSkipMode&&!seenScenes.has(scene.uuid)){stopSkip()}}
+async function applyTransition(type) {
+    const overlay = $('transitionOverlay');
+    const bg = gameBg;
+    
+    if (!type || type === 'none') return;
+    
+    // Remove old animation classes
+    bg.classList.remove('trans-fade', 'trans-slideLeft', 'trans-slideRight', 'trans-slideUp', 'trans-slideDown');
+    overlay.classList.remove('black', 'white');
+    overlay.style.opacity = '0';
+    
+    if (type === 'fadeBlack' || type === 'fadeWhite') {
+        // Fade through black/white
+        overlay.classList.add(type === 'fadeBlack' ? 'black' : 'white');
+        overlay.style.opacity = '1';
+        await new Promise(r => setTimeout(r, 250));
+        overlay.style.transition = 'opacity 0.25s';
+        overlay.style.opacity = '0';
+        await new Promise(r => setTimeout(r, 250));
+        overlay.style.transition = '';
+    } else if (type === 'fade') {
+        bg.classList.add('trans-fade');
+        await new Promise(r => setTimeout(r, 500));
+    } else if (type.startsWith('slide')) {
+        bg.classList.add('trans-' + type);
+        await new Promise(r => setTimeout(r, 400));
+    }
+}
+
+async function showScene(){choiceOverlay.classList.add('hidden');clearTimeout(textAnimTimer);isTextAnimating=false;if(currentIndex<0||currentIndex>=scenes.length){returnToTitle();return}const scene=scenes[currentIndex];seenScenes.add(scene.uuid);newSceneUUIDs.delete(scene.uuid);if(newSceneUUIDs.size===0)newScenesBanner.classList.add('hidden');const result=await runCmdSequence(scene.cmd);if(result==='SKIP'){currentIndex++;showScene();return}if(result&&result.goto){const idx=findSceneByLabel(result.goto);if(idx>=0){currentIndex=idx;showScene();return}}gameBg.innerHTML=scene.bgUrl?`<img src="${scene.bgUrl}">`:'';await applyTransition(scene.transition);charName.textContent=scene.name||'';charName.style.display=scene.name?'block':'none';animateText(scene.text||'');if(scene.textMode==='nvl'){textDisplay.classList.add('nvl-mode')}else{textDisplay.classList.remove('nvl-mode')}if(scene.name||scene.text){backlog.push({index:currentIndex,name:scene.name||'',text:scene.text||''});if(backlog.length>100)backlog.shift()}if(scene.isChoice&&scene.choices&&scene.choices.length>0){if(isSkipMode||textSpeed===100){showChoices(scene.choices)}else{setTimeout(()=>showChoices(scene.choices),getTextAnimDuration(scene.text||''))}stopAuto();stopSkip()}if(!isGalleryMode)autoSave();if(isAutoMode&&!scene.isChoice){autoTimer=setTimeout(()=>{if(isAutoMode)nextScene()},getTextAnimDuration(scene.text||'')+autoSpeed)}if(isSkipMode&&!scene.isChoice&&seenScenes.has(scene.uuid)){skipTimer=setTimeout(()=>{if(isSkipMode)nextScene()},50)}else if(isSkipMode&&!seenScenes.has(scene.uuid)){stopSkip()}}
 function getTextAnimDuration(t){if(textSpeed===100)return 0;return t.length*((100-textSpeed)*0.5+10)}
 function animateText(t){if(textSpeed===100){dialogue.textContent=t;return}dialogue.textContent='';isTextAnimating=true;let i=0;const ct=(100-textSpeed)*0.5+10;function add(){if(i<t.length){dialogue.textContent+=t[i];i++;textAnimTimer=setTimeout(add,ct)}else{isTextAnimating=false}}add()}
 function finishTextAnim(){if(isTextAnimating){clearTimeout(textAnimTimer);dialogue.textContent=scenes[currentIndex]?.text||'';isTextAnimating=false}}
