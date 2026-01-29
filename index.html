@@ -223,7 +223,7 @@
             </div>
         </div>
         <div class="control-area">
-            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.1.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
+            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.2.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
             <div class="section">
                 <div class="section-title">プロジェクト</div>
                 <div style="display:flex;gap:8px">
@@ -314,8 +314,9 @@
                 <button class="mode-btn active" id="editMode">編集</button>
                 <button class="mode-btn" id="previewModeBtn">プレビュー</button>
             </div>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
                 <button class="btn btn-history" id="historyBtn">📜 履歴</button>
+                <button class="btn" id="dedupeBtn" style="background:#f39c12;color:#000;font-size:11px;padding:6px 12px">🔍 重複チェック</button>
                 <button class="btn" id="exportAllPngBtn" style="background:#6c5ce7;color:#fff;font-size:11px;padding:6px 12px">📷 全PNG</button>
                 <button class="btn btn-clear" id="clearAll">全削除</button>
             </div>
@@ -1254,9 +1255,81 @@ nextBtn.onclick = () => {
     }
 };
 
+// 画像重複チェック&統合
+$('dedupeBtn').onclick = async () => {
+    // 全画像のハッシュを計算
+    const hashMap = {}; // hash -> [filenames]
+    const fileHashes = {}; // filename -> hash
+    
+    for (const [filename, data] of Object.entries(imageBlobs)) {
+        if (data.blob || data.file) {
+            const blob = data.blob || data.file;
+            const hash = data.hash || await hashBlob(blob);
+            fileHashes[filename] = hash;
+            if (!hashMap[hash]) hashMap[hash] = [];
+            hashMap[hash].push(filename);
+        }
+    }
+    
+    // 重複を検出
+    const duplicates = Object.entries(hashMap).filter(([h, files]) => files.length > 1);
+    
+    if (duplicates.length === 0) {
+        alert('重複画像はありませんでした');
+        return;
+    }
+    
+    // 重複ごとに確認
+    let mergedCount = 0;
+    for (const [hash, files] of duplicates) {
+        // 一番若い番号を残す
+        files.sort((a, b) => {
+            const numA = parseInt(a.split('.')[0]) || 999;
+            const numB = parseInt(b.split('.')[0]) || 999;
+            return numA - numB;
+        });
+        
+        const keepFile = files[0];
+        const removeFiles = files.slice(1);
+        
+        const msg = `重複画像を検出:\n保持: ${keepFile}\n削除: ${removeFiles.join(', ')}\n\n統合しますか？`;
+        
+        if (confirm(msg)) {
+            // シーンの参照を更新
+            for (const scene of scenes) {
+                if (removeFiles.includes(scene.bg)) {
+                    scene.bg = keepFile;
+                    scene.bgUrl = imageBlobs[keepFile]?.url || null;
+                }
+            }
+            
+            // 重複画像を削除（imageBlobsから）
+            for (const removeFile of removeFiles) {
+                if (imageBlobs[removeFile]?.url) {
+                    URL.revokeObjectURL(imageBlobs[removeFile].url);
+                }
+                delete imageBlobs[removeFile];
+                // imageHashesからも削除
+                const h = fileHashes[removeFile];
+                if (h && imageHashes[h] === removeFile) {
+                    imageHashes[h] = keepFile;
+                }
+            }
+            
+            mergedCount += removeFiles.length;
+        }
+    }
+    
+    if (mergedCount > 0) {
+        renderScenes();
+        await saveToIndexedDB();
+        alert(`${mergedCount}件の重複画像を統合しました`);
+    }
+};
+
 $('clearAll').onclick = async () => { 
     if (!confirm('全削除しますか？')) return; 
-    scenes = []; imageBlobs = {}; imageCounter = 0; choiceCounter = 0; 
+    scenes = []; imageBlobs = {}; imageHashes = {}; imageCounter = 0; choiceCounter = 0; 
     renderScenes(); 
     // Clear IndexedDB
     if (db) {
