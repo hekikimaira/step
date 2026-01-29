@@ -1,0 +1,1529 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VN Text Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Noto Sans JP', sans-serif; background: #1a1a1a; color: #eee; min-height: 100vh; }
+        .tabs { display: flex; background: #111; border-bottom: 1px solid #333; }
+        .tab-btn { padding: 12px 24px; background: transparent; border: none; color: #888; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .tab-btn.active { color: #4ecdc4; border-bottom: 2px solid #4ecdc4; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .editor-container { display: flex; height: calc(100vh - 49px); }
+        .preview-area { flex: 1; display: flex; align-items: center; justify-content: center; background: #111; padding: 16px; }
+        .control-area { flex: 1; padding: 16px; overflow-y: auto; max-width: 420px; }
+        @media (max-width: 800px) {
+            .editor-container { flex-direction: column-reverse; }
+            .control-area { max-width: 100%; flex: none; max-height: 50vh; }
+            .preview-area { flex: 1; min-height: 300px; }
+        }
+        
+        /* スマホ対応 */
+        @media (max-width: 600px) {
+            .tabs { overflow-x: auto; }
+            .tab-btn { padding: 10px 16px; font-size: 12px; white-space: nowrap; }
+            
+            .editor-container { flex-direction: column; height: auto; min-height: calc(100vh - 45px); }
+            .preview-area { height: 50vh; min-height: 280px; flex: none; padding: 8px; order: 1; }
+            .control-area { flex: 1; padding: 12px; max-width: 100%; max-height: none; overflow-y: visible; order: 2; }
+            
+            .section { padding: 10px; margin-bottom: 10px; }
+            .section-title { font-size: 10px; }
+            input[type="text"], textarea { padding: 8px; font-size: 16px; } /* 16pxでズーム防止 */
+            textarea { min-height: 60px; }
+            .btn { padding: 12px 14px; font-size: 13px; }
+            .btn-save { padding: 14px; font-size: 14px; }
+            
+            .audio-row { flex-wrap: wrap; }
+            .audio-label { width: 32px; font-size: 10px; }
+            .audio-file { font-size: 10px; padding: 6px; }
+            
+            .fx-row { flex-wrap: wrap; }
+            .fx-btn { padding: 8px; font-size: 11px; }
+            
+            .cmd-input { font-size: 11px; min-height: 50px; }
+            .cmd-help { font-size: 8px; }
+            
+            .scenes-container { padding: 12px; height: auto; min-height: calc(100vh - 45px); }
+            .scenes-header { flex-direction: column; align-items: stretch; gap: 10px; }
+            .mode-toggle { justify-content: center; }
+            .scene-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .scene-card { border-radius: 6px; }
+            .scene-info { padding: 6px; }
+            .scene-name { font-size: 11px; }
+            .scene-text { font-size: 9px; }
+            .scene-actions { opacity: 1; bottom: 4px; right: 4px; }
+            .scene-btn { width: 28px; height: 28px; font-size: 12px; }
+            
+            .preview-nav { padding: 8px; gap: 8px; }
+            .nav-btn { font-size: 24px; padding: 12px 16px; }
+            .preview-info { font-size: 12px; padding: 8px; }
+            
+            .modal { padding: 16px; width: 95%; }
+            .modal-title { font-size: 14px; }
+            .history-item { padding: 10px; }
+            .history-date { font-size: 12px; }
+            .history-info { font-size: 10px; }
+            
+            .choice-option { flex-wrap: wrap; }
+            .choice-option input { min-width: 100px; }
+            .choice-option select { flex: 1; min-width: 80px; }
+        }
+        
+        /* 極小スマホ対応 */
+        @media (max-width: 380px) {
+            .tab-btn { padding: 8px 12px; font-size: 11px; }
+            .preview-area { height: 45vh; min-height: 240px; }
+            .scene-grid { grid-template-columns: repeat(2, 1fr); }
+            .btn { padding: 10px 12px; font-size: 12px; }
+        }
+        .preview-canvas { position: relative; background: #000; aspect-ratio: 832/1216; height: 100%; max-width: 100%; container-type: inline-size; overflow: hidden; }
+        .preview-bg { position: absolute; inset: 0; }
+        .preview-bg img { width: 100%; height: 100%; object-fit: cover; }
+        .flash-overlay { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 10; }
+        .flash-overlay.active { animation: flash 0.15s ease-out; }
+        @keyframes flash { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+        .preview-canvas.shake { animation: shake 0.3s ease-in-out; }
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+        .text-display { position: absolute; bottom: 5%; left: 4%; right: 4%; z-index: 5; }
+        .text-display.nvl-mode { top: 0; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.6); display: flex; flex-direction: column; justify-content: flex-start; padding: 3% 4%; overflow-y: auto; }
+        .nvl-mode .char-name { font-size: 3.5cqw; margin-bottom: 1%; }
+        .nvl-mode .dialogue { font-size: 2.8cqw; line-height: 1.7; }
+        .char-name { font-size: 4cqw; font-weight: 700; color: #fff; text-shadow: 0 0 4px #000, 0 0 4px #000, 2px 2px 4px #000, -2px -2px 4px #000, 2px -2px 4px #000, -2px 2px 4px #000; margin-bottom: 2%; }
+        .dialogue { font-size: 3.2cqw; line-height: 1.6; color: #fff; text-shadow: 0 0 4px #000, 0 0 4px #000, 2px 2px 4px #000, -2px -2px 4px #000, 2px -2px 4px #000, -2px 2px 4px #000; white-space: pre-wrap; }
+        .section { background: #252525; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+        .section-title { font-size: 11px; color: #666; margin-bottom: 8px; text-transform: uppercase; }
+        input[type="text"], textarea { width: 100%; background: #333; border: none; border-radius: 4px; padding: 10px; color: #eee; font-family: inherit; font-size: 14px; margin-bottom: 8px; }
+        textarea { min-height: 80px; resize: vertical; }
+        textarea.nvl-expand { min-height: 240px; }
+        input:focus, textarea:focus { outline: 1px solid #4ecdc4; }
+        .btn { padding: 10px 16px; border: none; border-radius: 4px; font-weight: 700; font-size: 12px; cursor: pointer; }
+        .btn-primary { background: #4ecdc4; color: #000; width: 100%; }
+        .btn-save { background: #e94560; color: #fff; width: 100%; padding: 14px; font-size: 14px; }
+        .btn-cancel { background: #444; color: #aaa; width: 100%; margin-top: 8px; }
+        .btn-zip { background: #6c5ce7; color: #fff; }
+        .audio-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .audio-label { font-size: 11px; font-weight: 700; color: #4ecdc4; width: 36px; }
+        .audio-file { flex: 1; background: #333; border: none; border-radius: 4px; padding: 8px; color: #888; font-size: 11px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .audio-file.loaded { color: #4ecdc4; }
+        .audio-play { width: 28px; height: 28px; background: #4ecdc4; border: none; border-radius: 4px; color: #000; cursor: pointer; }
+        .audio-play:disabled { opacity: 0.3; }
+        .fx-row { display: flex; gap: 8px; }
+        .fx-btn { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; }
+        .fx-flash { background: #fff; color: #333; }
+        .fx-shake { background: #e94560; color: #fff; }
+        .cmd-input { font-family: monospace; font-size: 12px; min-height: 60px; }
+        .cmd-help { font-size: 9px; color: #666; margin-top: 4px; line-height: 1.5; }
+        .cmd-help code { background: #333; padding: 1px 4px; border-radius: 2px; color: #4ecdc4; }
+        .scenes-container { padding: 16px; height: calc(100vh - 49px); overflow-y: auto; }
+        .scenes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+        .scene-count { font-size: 14px; color: #888; }
+        .mode-toggle { display: flex; gap: 4px; background: #111; padding: 4px; border-radius: 6px; }
+        .mode-btn { padding: 6px 14px; background: transparent; border: none; border-radius: 4px; color: #888; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .mode-btn.active { background: #4ecdc4; color: #000; }
+        .btn-clear { background: #e94560; color: #fff; font-size: 11px; padding: 6px 12px; }
+        .scene-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+        .scene-card { background: #252525; border-radius: 8px; overflow: hidden; cursor: grab; position: relative; }
+        .scene-card.dragging { opacity: 0.4; }
+        .scene-card.drag-over { outline: 2px solid #4ecdc4; }
+        .scene-card.is-choice { outline: 2px solid #f39c12; }
+        .scene-thumb { aspect-ratio: 832/1216; background: #333; position: relative; }
+        .scene-thumb img { width: 100%; height: 100%; object-fit: cover; }
+        .scene-info { padding: 8px; }
+        .scene-name { font-size: 12px; font-weight: 700; color: #4ecdc4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .scene-text { font-size: 10px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .scene-label { font-size: 9px; color: #f39c12; margin-top: 2px; }
+        .scene-num { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.7); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+        .scene-choice-badge { position: absolute; top: 6px; right: 6px; background: #f39c12; color: #000; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; }
+        .scene-actions { position: absolute; bottom: 6px; right: 6px; display: flex; gap: 4px; opacity: 0; }
+        .scene-card:hover .scene-actions { opacity: 1; }
+        .scene-btn { width: 24px; height: 24px; border: none; border-radius: 4px; font-size: 11px; cursor: pointer; }
+        .scene-edit { background: #4ecdc4; color: #000; }
+        .scene-del { background: #e94560; color: #fff; }
+        .preview-mode { display: none; position: fixed; inset: 0; z-index: 1000; background: #000; }
+        .preview-mode.active { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .preview-exit-zone { width: 100%; height: 60px; display: flex; align-items: center; justify-content: center; color: #555; font-size: 12px; }
+        .preview-nav { flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px; min-height: 0; overflow: hidden; }
+        .nav-btn { background: rgba(255,255,255,0.1); border: none; color: #fff; font-size: 32px; padding: 16px 24px; cursor: pointer; border-radius: 8px; }
+        .nav-btn:hover { background: rgba(255,255,255,0.2); }
+        .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .preview-frame { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .preview-frame .preview-canvas { width: 100%; max-width: calc((100vh - 140px) * 832 / 1216); height: auto; aspect-ratio: 832/1216; }
+        .preview-info { padding: 12px; color: #888; font-size: 14px; }
+        .empty-msg { text-align: center; padding: 60px; color: #666; }
+        .hidden { display: none !important; }
+        
+        /* スマホ用プレビューモード */
+        @media (max-width: 600px) {
+            .preview-exit-zone { height: 50px; font-size: 11px; }
+            .preview-nav { padding: 8px; gap: 8px; flex-direction: column; }
+            .nav-btn { font-size: 20px; padding: 10px 14px; }
+            .preview-frame { padding: 4px; width: 100%; }
+            .preview-frame .preview-canvas { width: 90%; max-width: none; height: auto; }
+            .preview-info { padding: 8px; font-size: 12px; }
+        }
+        
+        /* History Modal */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        .modal { background: #252525; border-radius: 12px; padding: 20px; max-width: 400px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #4ecdc4; }
+        .modal-close { position: absolute; top: 10px; right: 10px; background: none; border: none; color: #888; font-size: 20px; cursor: pointer; }
+        .history-item { background: #333; border-radius: 8px; padding: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.2s; }
+        .history-item:hover { background: #444; }
+        .history-date { font-size: 13px; color: #fff; }
+        .history-info { font-size: 11px; color: #888; margin-top: 4px; }
+        .no-history { text-align: center; color: #666; padding: 20px; }
+        .btn-history { background: #f39c12; color: #000; font-size: 11px; padding: 6px 12px; }
+        
+        /* Choice checkbox */
+        .choice-toggle { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .choice-toggle input { width: 18px; height: 18px; }
+        .choice-toggle label { font-size: 13px; color: #f39c12; font-weight: 700; }
+        
+        /* Choice options editor */
+        .choice-options { background: #1a1a1a; border-radius: 4px; padding: 10px; margin-bottom: 8px; }
+        .choice-option { display: flex; gap: 8px; margin-bottom: 8px; align-items: center; }
+        .choice-option input { flex: 1; margin: 0; }
+        .choice-option-id { font-size: 11px; color: #f39c12; font-weight: 700; min-width: 40px; }
+        .choice-option select { background: #333; border: none; border-radius: 4px; padding: 6px; color: #eee; font-size: 11px; }
+        .add-choice-btn { background: #f39c12; color: #000; font-size: 11px; padding: 6px 12px; }
+        .remove-choice-btn { background: #e94560; color: #fff; width: 24px; height: 24px; font-size: 14px; padding: 0; }
+        
+        /* Label input */
+        .label-input { background: #2a2a2a; border: 1px dashed #f39c12; }
+        
+        /* Choice overlay in preview */
+        .choice-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3cqw; z-index: 20; pointer-events: none; }
+        .choice-btn { background: linear-gradient(135deg, #333 0%, #222 100%); border: 2px solid #f39c12; color: #fff; padding: 3cqw 6cqw; font-size: 3.5cqw; font-weight: 700; border-radius: 1cqw; cursor: pointer; min-width: 60%; text-align: center; transition: all 0.2s; pointer-events: auto; }
+        .choice-btn:hover { background: #f39c12; color: #000; }
+    </style>
+</head>
+<body>
+<div class="tabs">
+    <button class="tab-btn active" data-tab="editor">エディタ</button>
+    <button class="tab-btn" data-tab="scenes">シーン一覧</button>
+</div>
+
+<div id="editorTab" class="tab-content active">
+    <div class="editor-container">
+        <div class="preview-area">
+            <div class="preview-canvas" id="editorCanvas">
+                <div class="preview-bg" id="editorBg"></div>
+                <div class="flash-overlay" id="editorFlash"></div>
+                <div class="text-display">
+                    <div class="char-name" id="editorName"></div>
+                    <div class="dialogue" id="editorText">画像を選択してください</div>
+                </div>
+            </div>
+        </div>
+        <div class="control-area">
+            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.1.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
+            <div class="section">
+                <div class="section-title">プロジェクト</div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-zip" id="loadZip" style="flex:1">📁 ZIP読込</button>
+                    <button class="btn btn-zip" id="saveZip" style="flex:1">💾 ZIP保存</button>
+                </div>
+                <input type="file" id="zipInput" accept=".zip" class="hidden">
+            </div>
+            <div class="section">
+                <div class="section-title">背景画像</div>
+                <button class="audio-file" id="imgBtn" style="width:100%">画像を選択</button>
+                <input type="file" id="imgInput" accept="image/*" class="hidden">
+            </div>
+            <div class="section">
+                <div class="section-title">テキストモード</div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn" id="modeADV" style="flex:1;background:#4ecdc4;color:#000">ADV（下部）</button>
+                    <button class="btn" id="modeNVL" style="flex:1;background:#333;color:#888">NVL（全画面）</button>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">ラベル（ジャンプ先として使用）</div>
+                <input type="text" id="labelInput" class="label-input" placeholder="例: ルートB開始">
+            </div>
+            <div class="section">
+                <div class="section-title">テキスト</div>
+                <input type="text" id="nameInput" placeholder="キャラクター名">
+                <textarea id="textInput" placeholder="セリフ"></textarea>
+            </div>
+            <div class="section">
+                <div class="section-title">選択肢</div>
+                <div class="choice-toggle">
+                    <input type="checkbox" id="isChoiceCheck">
+                    <label for="isChoiceCheck">このシーンは選択肢</label>
+                </div>
+                <div id="choiceEditor" class="hidden">
+                    <div class="choice-options" id="choiceOptions"></div>
+                    <button class="btn add-choice-btn" id="addChoiceBtn">＋ 選択肢を追加</button>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">SE</div>
+                <div class="audio-row"><span class="audio-label">SE1</span><button class="audio-file" id="se1Btn">選択</button><button class="audio-play" id="se1Play" disabled>▶</button></div>
+                <div class="audio-row"><span class="audio-label">SE2</span><button class="audio-file" id="se2Btn">選択</button><button class="audio-play" id="se2Play" disabled>▶</button></div>
+                <div class="audio-row"><span class="audio-label">SE3</span><button class="audio-file" id="se3Btn">選択</button><button class="audio-play" id="se3Play" disabled>▶</button></div>
+                <input type="file" id="se1Input" accept="audio/*" class="hidden">
+                <input type="file" id="se2Input" accept="audio/*" class="hidden">
+                <input type="file" id="se3Input" accept="audio/*" class="hidden">
+            </div>
+            <div class="section">
+                <div class="section-title">BGM</div>
+                <div class="audio-row"><span class="audio-label">BGM</span><button class="audio-file" id="bgmBtn">選択</button><button class="audio-play" id="bgmPlay" disabled>▶</button></div>
+                <input type="file" id="bgmInput" accept="audio/*" class="hidden">
+            </div>
+            <div class="section">
+                <div class="section-title">FX</div>
+                <div class="fx-row">
+                    <button class="fx-btn fx-flash" id="fxFlash">フラッシュ</button>
+                    <button class="fx-btn fx-shake" id="fxShake">振動</button>
+                </div>
+            </div>
+            <div class="section">
+                <div class="section-title">コマンド</div>
+                <textarea id="cmdInput" class="cmd-input" placeholder="1SE2,@FLASH"></textarea>
+                <div class="cmd-help">
+                    <code>2SE4</code> SE2×4回 <code>FLASH3</code> <code>SHAKE2</code><br>
+                    <code>SETFLAG:名前</code> フラグON<br>
+                    <code>IFFLAG:名前:SKIP</code> フラグあればスキップ<br>
+                    <code>IFFLAG:名前:GOTO:ラベル</code> フラグあればジャンプ<br>
+                    <code>NOTFLAG:名前:GOTO:ラベル</code> フラグなければジャンプ<br>
+                    <code>FROM:A-1:SKIP</code> A-1から来たらスキップ<br>
+                    <code>FROM:A-1:GOTO:ラベル</code> A-1から来たらジャンプ
+                </div>
+                <button class="btn btn-primary" id="cmdExec" style="margin-top:8px">実行</button>
+            </div>
+            <button class="btn btn-save" id="saveBtn">＋ 新規シーン追加</button>
+            <button class="btn btn-cancel hidden" id="cancelBtn">キャンセル</button>
+            <button class="btn" id="exportPngBtn" style="background:#6c5ce7;color:#fff;width:100%;margin-top:8px">📷 PNGとして保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="scenesTab" class="tab-content">
+    <div class="scenes-container">
+        <div class="scenes-header">
+            <span class="scene-count" id="sceneCount">0 シーン</span>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="editMode">編集</button>
+                <button class="mode-btn" id="previewModeBtn">プレビュー</button>
+            </div>
+            <div style="display:flex;gap:8px">
+                <button class="btn btn-history" id="historyBtn">📜 履歴</button>
+                <button class="btn" id="exportAllPngBtn" style="background:#6c5ce7;color:#fff;font-size:11px;padding:6px 12px">📷 全PNG</button>
+                <button class="btn btn-clear" id="clearAll">全削除</button>
+            </div>
+        </div>
+        <div class="scene-grid" id="sceneGrid"></div>
+        <div class="preview-mode" id="previewView">
+            <div class="preview-exit-zone" id="previewExitZone">↑ ダブルタップで終了</div>
+            <div class="preview-nav">
+                <button class="nav-btn" id="prevBtn">‹</button>
+                <div class="preview-frame">
+                    <div class="preview-canvas" id="previewCanvas">
+                        <div class="preview-bg" id="previewBgEl"></div>
+                        <div class="flash-overlay" id="previewFlash"></div>
+                        <div class="text-display">
+                            <div class="char-name" id="previewName"></div>
+                            <div class="dialogue" id="previewText"></div>
+                        </div>
+                        <div class="choice-overlay hidden" id="choiceOverlay"></div>
+                    </div>
+                </div>
+                <button class="nav-btn" id="nextBtn">›</button>
+            </div>
+            <div class="preview-info" id="previewInfo">0 / 0</div>
+            <div id="debugLog" class="hidden" style="position:absolute;bottom:40px;left:10px;right:10px;max-height:150px;overflow-y:auto;background:rgba(0,0,0,0.9);color:#0f0;font-size:10px;font-family:monospace;padding:8px;border:1px solid #0f0;"></div>
+        </div>
+        <div class="empty-msg" id="emptyMsg">シーンがありません</div>
+    </div>
+</div>
+
+<!-- History Modal -->
+<div class="modal-overlay hidden" id="historyModal">
+    <div class="modal">
+        <div class="modal-title">📜 履歴から復元</div>
+        <div id="historyList"></div>
+        <button class="btn btn-cancel" id="closeHistoryBtn" style="margin-top:12px">閉じる</button>
+    </div>
+</div>
+
+<script>
+// ===== IndexedDB Auto Save =====
+const DB_NAME = 'vn-editor-db';
+const DB_VERSION = 2;
+const MAX_HISTORY = 5;
+let db = null;
+
+async function initDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onerror = () => { console.error('DB error:', request.error); reject(request.error); };
+        request.onsuccess = () => { db = request.result; resolve(db); };
+        request.onupgradeneeded = (e) => {
+            const database = e.target.result;
+            if (!database.objectStoreNames.contains('project')) {
+                database.createObjectStore('project', { keyPath: 'id' });
+            }
+            if (!database.objectStoreNames.contains('images')) {
+                database.createObjectStore('images', { keyPath: 'id' });
+            }
+            if (!database.objectStoreNames.contains('history')) {
+                database.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
+            }
+        };
+    });
+}
+
+async function saveToIndexedDB() {
+    if (!db) await initDB();
+    try {
+        // Save project data first
+        const tx1 = db.transaction('project', 'readwrite');
+        const projectStore = tx1.objectStore('project');
+        const projectData = {
+            id: 'main',
+            scenes: scenes.map(s => ({
+                id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
+                bg: s.bg, textMode: s.textMode, isChoice: s.isChoice, choices: s.choices
+            })),
+            imageCounter,
+            choiceCounter
+        };
+        projectStore.put(projectData);
+        await new Promise((res, rej) => { tx1.oncomplete = res; tx1.onerror = () => rej(tx1.error); });
+        
+        // Save images separately (one at a time to avoid quota issues)
+        const imgStore = db.transaction('images', 'readwrite').objectStore('images');
+        for (const [filename, data] of Object.entries(imageBlobs)) {
+            if (data.file || data.blob) {
+                try {
+                    const tx2 = db.transaction('images', 'readwrite');
+                    tx2.objectStore('images').put({ id: filename, blob: data.file || data.blob });
+                    await new Promise((res, rej) => { tx2.oncomplete = res; tx2.onerror = () => rej(tx2.error); });
+                } catch (imgErr) {
+                    console.warn(`Image save error for ${filename}:`, imgErr);
+                }
+            }
+        }
+        console.log('SaveToIndexedDB complete');
+    } catch (e) { 
+        console.error('Auto save error:', e);
+        alert('保存エラー: ' + e.message);
+    }
+}
+
+async function saveToHistory() {
+    if (!db) await initDB();
+    if (scenes.length === 0) return;
+    
+    try {
+        // Collect image blobs
+        const historyImages = {};
+        for (const [filename, data] of Object.entries(imageBlobs)) {
+            if (data.file || data.blob) {
+                historyImages[filename] = data.file || data.blob;
+            }
+        }
+        
+        const historyEntry = {
+            timestamp: Date.now(),
+            scenes: scenes.map(s => ({
+                id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
+                bg: s.bg, textMode: s.textMode, isChoice: s.isChoice, choices: s.choices
+            })),
+            images: historyImages,
+            imageCounter,
+            choiceCounter
+        };
+        
+        const tx = db.transaction('history', 'readwrite');
+        const store = tx.objectStore('history');
+        
+        // Add new entry
+        store.add(historyEntry);
+        
+        // Get all entries and delete old ones
+        const getAllReq = store.getAll();
+        getAllReq.onsuccess = () => {
+            const entries = getAllReq.result;
+            if (entries.length > MAX_HISTORY) {
+                // Sort by timestamp, delete oldest
+                entries.sort((a, b) => a.timestamp - b.timestamp);
+                const toDelete = entries.slice(0, entries.length - MAX_HISTORY);
+                toDelete.forEach(e => store.delete(e.id));
+            }
+        };
+        
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+    } catch (e) { console.warn('History save error:', e); }
+}
+
+async function getHistoryList() {
+    if (!db) await initDB();
+    try {
+        const tx = db.transaction('history', 'readonly');
+        const store = tx.objectStore('history');
+        const req = store.getAll();
+        
+        return new Promise((res, rej) => {
+            req.onsuccess = () => {
+                const entries = req.result.sort((a, b) => b.timestamp - a.timestamp);
+                res(entries.map(e => ({
+                    id: e.id,
+                    timestamp: e.timestamp,
+                    sceneCount: e.scenes.length,
+                    date: new Date(e.timestamp).toLocaleString('ja-JP')
+                })));
+            };
+            req.onerror = () => rej(req.error);
+        });
+    } catch (e) { console.warn('Get history error:', e); return []; }
+}
+
+async function restoreFromHistory(historyId) {
+    if (!db) await initDB();
+    try {
+        const tx = db.transaction('history', 'readonly');
+        const store = tx.objectStore('history');
+        const req = store.get(historyId);
+        
+        const entry = await new Promise((res, rej) => {
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+        });
+        
+        if (!entry) return false;
+        
+        // Restore state
+        imageCounter = entry.imageCounter || 0;
+        choiceCounter = entry.choiceCounter || 0;
+        
+        // Restore images
+        imageBlobs = {};
+        for (const [filename, blob] of Object.entries(entry.images || {})) {
+            const url = URL.createObjectURL(blob);
+            imageBlobs[filename] = { url, blob };
+        }
+        
+        // Restore scenes
+        scenes = (entry.scenes || []).map(s => ({
+            ...s,
+            bgUrl: s.bg && imageBlobs[s.bg] ? imageBlobs[s.bg].url : null
+        }));
+        
+        renderScenes();
+        resetEditor();
+        await saveToIndexedDB();
+        return true;
+    } catch (e) { console.warn('Restore history error:', e); return false; }
+}
+
+async function loadFromIndexedDB() {
+    if (!db) await initDB();
+    try {
+        const tx = db.transaction(['project', 'images'], 'readonly');
+        
+        // Load project
+        const projectStore = tx.objectStore('project');
+        const projectReq = projectStore.get('main');
+        
+        const projectData = await new Promise((res, rej) => {
+            projectReq.onsuccess = () => res(projectReq.result);
+            projectReq.onerror = () => rej(projectReq.error);
+        });
+        
+        if (!projectData) return;
+        
+        imageCounter = projectData.imageCounter || 0;
+        choiceCounter = projectData.choiceCounter || 0;
+        
+        // Load images
+        const imgStore = tx.objectStore('images');
+        const imgReq = imgStore.getAll();
+        
+        const images = await new Promise((res, rej) => {
+            imgReq.onsuccess = () => res(imgReq.result);
+            imgReq.onerror = () => rej(imgReq.error);
+        });
+        
+        imageBlobs = {};
+        for (const img of images) {
+            const url = URL.createObjectURL(img.blob);
+            imageBlobs[img.id] = { url, blob: img.blob };
+        }
+        
+        // Restore scenes with bgUrl
+        scenes = (projectData.scenes || []).map(s => ({
+            ...s,
+            bgUrl: s.bg && imageBlobs[s.bg] ? imageBlobs[s.bg].url : null
+        }));
+        
+        renderScenes();
+    } catch (e) { console.warn('Auto load error:', e); }
+}
+
+// Debounced save
+let saveTimer = null;
+function debouncedSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveToIndexedDB, 1000);
+}
+
+// History save with 1 minute throttle
+let lastHistorySave = 0;
+const HISTORY_INTERVAL = 60 * 1000; // 1分
+
+async function throttledHistorySave() {
+    const now = Date.now();
+    if (now - lastHistorySave >= HISTORY_INTERVAL) {
+        lastHistorySave = now;
+        await saveToHistory();
+    }
+}
+
+// Combined save: auto save + throttled history
+async function saveWithHistory() {
+    debouncedSave();
+    await throttledHistorySave();
+}
+
+// ===== State =====
+let scenes = [];
+let imageBlobs = {};
+let editingId = null;
+let currentBgFile = null;
+let currentBgUrl = null;
+let previewIndex = 0;
+let imageCounter = 0;
+let choiceCounter = 0;
+let currentChoices = []; // [{id, text, goto}]
+let currentTextMode = 'adv'; // 'adv' or 'nvl'
+
+// Game state
+let flags = {};
+let lastChoiceId = null; // 直前に選んだ選択肢ID
+
+const audio = { se1: new Audio(), se2: new Audio(), se3: new Audio(), bgm: new Audio() };
+const audioData = { se1: null, se2: null, se3: null, bgm: null };
+const audioBlobs = { se1: null, se2: null, se3: null, bgm: null }; // Store original files
+audio.bgm.loop = true;
+
+// ===== DOM =====
+const $ = id => document.getElementById(id);
+const editorCanvas = $('editorCanvas'), editorBg = $('editorBg'), editorFlash = $('editorFlash');
+const editorName = $('editorName'), editorText = $('editorText');
+const nameInput = $('nameInput'), textInput = $('textInput'), cmdInput = $('cmdInput'), labelInput = $('labelInput');
+const imgBtn = $('imgBtn'), imgInput = $('imgInput'), saveBtn = $('saveBtn'), cancelBtn = $('cancelBtn');
+const isChoiceCheck = $('isChoiceCheck'), choiceEditor = $('choiceEditor'), choiceOptions = $('choiceOptions');
+const modeADVBtn = $('modeADV'), modeNVLBtn = $('modeNVL');
+const textDisplayEditor = document.querySelector('#editorTab .preview-canvas .text-display') || (function(){ const el = document.createElement('div'); el.className = 'text-display'; return el; })();
+const sceneGrid = $('sceneGrid'), sceneCount = $('sceneCount'), emptyMsg = $('emptyMsg');
+const editModeBtn = $('editMode'), previewModeBtn = $('previewModeBtn'), previewView = $('previewView');
+const previewCanvas = $('previewCanvas'), previewBgEl = $('previewBgEl'), previewFlash = $('previewFlash');
+const previewName = $('previewName'), previewText = $('previewText'), previewInfo = $('previewInfo');
+const prevBtn = $('prevBtn'), nextBtn = $('nextBtn'), choiceOverlay = $('choiceOverlay');
+
+// ===== Tabs =====
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        btn.classList.add('active');
+        $(btn.dataset.tab + 'Tab').classList.add('active');
+    };
+});
+
+// ===== Editor =====
+nameInput.oninput = () => { editorName.textContent = nameInput.value; editorName.style.display = nameInput.value ? 'block' : 'none'; };
+textInput.oninput = () => { editorText.textContent = textInput.value; };
+
+imgBtn.onclick = () => imgInput.click();
+
+// 画像圧縮関数
+async function compressImage(file, maxWidth = 768, maxHeight = 1216, quality = 0.85) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            // 元サイズを維持（リサイズしない）
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            // JPEG 85%で圧縮
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(img.src);
+                resolve(blob);
+            }, 'image/jpeg', quality);
+        };
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+imgInput.onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    imgBtn.textContent = '圧縮中...';
+    
+    try {
+        // 圧縮
+        const compressedBlob = await compressImage(file);
+        const originalSize = (file.size / 1024).toFixed(0);
+        const compressedSize = (compressedBlob.size / 1024).toFixed(0);
+        console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB`);
+        
+        imageCounter++;
+        const filename = String(imageCounter).padStart(3, '0') + '.jpg';
+        const url = URL.createObjectURL(compressedBlob);
+        imageBlobs[filename] = { url, blob: compressedBlob };
+        currentBgFile = filename;
+        currentBgUrl = url;
+        editorBg.innerHTML = `<img src="${url}">`;
+        imgBtn.textContent = filename + ` (${compressedSize}KB)`;
+        imgBtn.classList.add('loaded');
+    } catch (err) {
+        console.error('Compression error:', err);
+        // フォールバック: 圧縮失敗時は元ファイルを使用
+        imageCounter++;
+        const ext = file.name.split('.').pop();
+        const filename = String(imageCounter).padStart(3, '0') + '.' + ext;
+        const url = URL.createObjectURL(file);
+        imageBlobs[filename] = { url, file };
+        currentBgFile = filename;
+        currentBgUrl = url;
+        editorBg.innerHTML = `<img src="${url}">`;
+        imgBtn.textContent = filename;
+        imgBtn.classList.add('loaded');
+    }
+};
+
+// Text Mode toggle
+function setTextMode(mode) {
+    currentTextMode = mode;
+    const textDisplay = editorCanvas.querySelector('.text-display');
+    if (mode === 'nvl') {
+        textDisplay.classList.add('nvl-mode');
+        textInput.classList.add('nvl-expand');
+        modeADVBtn.style.background = '#333';
+        modeADVBtn.style.color = '#888';
+        modeNVLBtn.style.background = '#4ecdc4';
+        modeNVLBtn.style.color = '#000';
+    } else {
+        textDisplay.classList.remove('nvl-mode');
+        textInput.classList.remove('nvl-expand');
+        modeADVBtn.style.background = '#4ecdc4';
+        modeADVBtn.style.color = '#000';
+        modeNVLBtn.style.background = '#333';
+        modeNVLBtn.style.color = '#888';
+    }
+}
+modeADVBtn.onclick = () => setTextMode('adv');
+modeNVLBtn.onclick = () => setTextMode('nvl');
+
+// Choice toggle
+isChoiceCheck.onchange = () => {
+    choiceEditor.classList.toggle('hidden', !isChoiceCheck.checked);
+    if (isChoiceCheck.checked && currentChoices.length === 0) {
+        addChoice();
+        addChoice();
+    }
+};
+
+// Add choice
+$('addChoiceBtn').onclick = addChoice;
+
+function addChoice() {
+    choiceCounter++;
+    const id = 'A-' + choiceCounter;
+    currentChoices.push({ id, text: '', goto: '' });
+    renderChoices();
+}
+
+function renderChoices() {
+    choiceOptions.innerHTML = '';
+    currentChoices.forEach((c, i) => {
+        const div = document.createElement('div');
+        div.className = 'choice-option';
+        div.innerHTML = `
+            <span class="choice-option-id">${c.id}</span>
+            <input type="text" placeholder="選択肢テキスト" value="${c.text}" data-idx="${i}" data-field="text">
+            <select data-idx="${i}" data-field="goto">
+                <option value="">→ 次へ</option>
+                ${scenes.map(s => `<option value="${s.label || s.id}" ${c.goto === (s.label || String(s.id)) ? 'selected' : ''}>${s.label || '#' + (scenes.indexOf(s) + 1)}</option>`).join('')}
+            </select>
+            <button class="btn remove-choice-btn" data-idx="${i}">×</button>
+        `;
+        choiceOptions.appendChild(div);
+    });
+    
+    choiceOptions.querySelectorAll('input, select').forEach(el => {
+        el.onchange = el.oninput = () => {
+            const idx = +el.dataset.idx;
+            const field = el.dataset.field;
+            currentChoices[idx][field] = el.value;
+        };
+    });
+    
+    choiceOptions.querySelectorAll('.remove-choice-btn').forEach(btn => {
+        btn.onclick = () => {
+            currentChoices.splice(+btn.dataset.idx, 1);
+            renderChoices();
+        };
+    });
+}
+
+// Audio
+['se1','se2','se3','bgm'].forEach(key => {
+    const btn = $(key + 'Btn'), input = $(key + 'Input'), play = $(key + 'Play');
+    btn.onclick = () => input.click();
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        audioData[key] = URL.createObjectURL(file);
+        audioBlobs[key] = file; // Store the file for ZIP export
+        audio[key].src = audioData[key];
+        btn.textContent = file.name;
+        btn.classList.add('loaded');
+        play.disabled = false;
+    };
+    play.onclick = () => {
+        if (key === 'bgm') {
+            if (audio.bgm.paused) { audio.bgm.play(); play.textContent = '⏸'; }
+            else { audio.bgm.pause(); play.textContent = '▶'; }
+        } else { audio[key].currentTime = 0; audio[key].play(); }
+    };
+});
+
+// FX
+$('fxFlash').onclick = () => doFlash(editorFlash);
+$('fxShake').onclick = () => doShake(editorCanvas);
+
+function doFlash(el) { el.classList.remove('active'); void el.offsetWidth; el.classList.add('active'); }
+function doShake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function playSE(key, count) {
+    if (!audioData[key]) return;
+    for (let i = 0; i < count; i++) {
+        audio[key].currentTime = 0;
+        await audio[key].play();
+        await new Promise(r => audio[key].onended = r);
+    }
+}
+
+async function runCmd(cmd, flashEl, shakeEl, isPreview = false) {
+    cmd = cmd.toUpperCase().trim();
+    if (cmd.startsWith('@')) cmd = cmd.slice(1);
+    
+    let m;
+    
+    // SE
+    m = cmd.match(/^([123])SE(\d+)$/);
+    if (m) { await playSE('se' + m[1], +m[2]); return null; }
+    
+    // FLASH
+    m = cmd.match(/^FLASH(\d*)$/);
+    if (m) { const n = +m[1] || 1; for (let i = 0; i < n; i++) { doFlash(flashEl); if (i < n-1) await sleep(150); } return null; }
+    
+    // SHAKE
+    m = cmd.match(/^SHAKE(\d*)$/);
+    if (m) { const n = +m[1] || 1; for (let i = 0; i < n; i++) { doShake(shakeEl); if (i < n-1) await sleep(300); } return null; }
+    
+    // BGM
+    if (cmd === 'BGM' && audioData.bgm) {
+        const p = $('bgmPlay');
+        if (audio.bgm.paused) { audio.bgm.play(); p.textContent = '⏸'; }
+        else { audio.bgm.pause(); p.textContent = '▶'; }
+        return null;
+    }
+    
+    if (!isPreview) return null;
+    
+    // SETFLAG
+    m = cmd.match(/^SETFLAG:(.+)$/);
+    if (m) { flags[m[1]] = true; return null; }
+    
+    // IFFLAG:name:SKIP
+    m = cmd.match(/^IFFLAG:(.+):SKIP$/);
+    if (m) { if (flags[m[1]]) return 'SKIP'; return null; }
+    
+    // IFFLAG:name:GOTO:label
+    m = cmd.match(/^IFFLAG:(.+):GOTO:(.+)$/);
+    if (m) { if (flags[m[1]]) return { goto: m[2] }; return null; }
+    
+    // NOTFLAG:name:GOTO:label
+    m = cmd.match(/^NOTFLAG:(.+):GOTO:(.+)$/);
+    if (m) { if (!flags[m[1]]) return { goto: m[2] }; return null; }
+    
+    // FROM:choiceId:SKIP
+    m = cmd.match(/^FROM:(.+):SKIP$/);
+    if (m) { if (lastChoiceId === m[1]) return 'SKIP'; return null; }
+    
+    // FROM:choiceId:GOTO:label
+    m = cmd.match(/^FROM:(.+):GOTO:(.+)$/);
+    if (m) { if (lastChoiceId === m[1]) return { goto: m[2] }; return null; }
+    
+    return null;
+}
+
+async function runCmdSequence(str, flashEl, shakeEl, isPreview = false) {
+    if (!str) return null;
+    const lines = str.split('\n').map(l => l.trim()).filter(l => l);
+    
+    for (const line of lines) {
+        const parts = line.split(',').map(s => s.trim()).filter(s => s);
+        for (let i = 0; i < parts.length; i++) {
+            const group = [parts[i]];
+            while (i + 1 < parts.length && parts[i + 1].startsWith('@')) { group.push(parts[++i]); }
+            const results = await Promise.all(group.map(c => runCmd(c, flashEl, shakeEl, isPreview)));
+            for (const r of results) {
+                if (r === 'SKIP') return 'SKIP';
+                if (r && r.goto) return r;
+            }
+        }
+    }
+    return null;
+}
+
+$('cmdExec').onclick = () => runCmdSequence(cmdInput.value, editorFlash, editorCanvas, false);
+
+// Save scene
+saveBtn.onclick = () => {
+    const scene = {
+        id: editingId || Date.now(),
+        uuid: editingId ? (scenes.find(s => s.id === editingId)?.uuid || crypto.randomUUID()) : crypto.randomUUID(),
+        name: nameInput.value,
+        text: textInput.value,
+        cmd: cmdInput.value,
+        label: labelInput.value,
+        bg: currentBgFile,
+        bgUrl: currentBgUrl,
+        textMode: currentTextMode,
+        isChoice: isChoiceCheck.checked,
+        choices: isChoiceCheck.checked ? [...currentChoices] : []
+    };
+    if (editingId) {
+        const idx = scenes.findIndex(s => s.id === editingId);
+        if (idx >= 0) scenes[idx] = scene;
+        resetEditor();
+    } else {
+        scenes.push(scene);
+    }
+    renderScenes();
+    saveWithHistory();
+};
+
+cancelBtn.onclick = resetEditor;
+
+function resetEditor() {
+    editingId = null;
+    nameInput.value = ''; textInput.value = ''; cmdInput.value = ''; labelInput.value = '';
+    currentBgFile = null; currentBgUrl = null;
+    editorName.textContent = ''; editorText.textContent = ''; editorBg.innerHTML = '';
+    imgBtn.textContent = '画像を選択'; imgBtn.classList.remove('loaded');
+    isChoiceCheck.checked = false;
+    choiceEditor.classList.add('hidden');
+    currentChoices = [];
+    choiceOptions.innerHTML = '';
+    setTextMode('adv');
+    saveBtn.textContent = '＋ 新規シーン追加'; saveBtn.classList.remove('btn-update'); saveBtn.classList.add('btn-save');
+    cancelBtn.classList.add('hidden');
+}
+
+function loadToEditor(scene) {
+    editingId = scene.id;
+    nameInput.value = scene.name || ''; textInput.value = scene.text || ''; cmdInput.value = scene.cmd || ''; labelInput.value = scene.label || '';
+    currentBgFile = scene.bg || null; currentBgUrl = scene.bgUrl || null;
+    editorName.textContent = scene.name || ''; editorName.style.display = scene.name ? 'block' : 'none';
+    editorText.textContent = scene.text || '';
+    if (scene.bgUrl) { editorBg.innerHTML = `<img src="${scene.bgUrl}">`; imgBtn.textContent = scene.bg || '読込済'; imgBtn.classList.add('loaded'); }
+    else { editorBg.innerHTML = ''; imgBtn.textContent = '画像を選択'; imgBtn.classList.remove('loaded'); }
+    
+    setTextMode(scene.textMode || 'adv');
+    
+    isChoiceCheck.checked = scene.isChoice || false;
+    currentChoices = scene.choices ? [...scene.choices] : [];
+    choiceEditor.classList.toggle('hidden', !scene.isChoice);
+    renderChoices();
+    
+    saveBtn.textContent = '✓ シーンを更新'; saveBtn.classList.add('btn-update'); saveBtn.classList.remove('btn-save');
+    cancelBtn.classList.remove('hidden');
+    document.querySelector('[data-tab="editor"]').click();
+}
+
+// ===== Scene List =====
+function renderScenes() {
+    sceneCount.textContent = scenes.length + ' シーン';
+    emptyMsg.classList.toggle('hidden', scenes.length > 0);
+    sceneGrid.innerHTML = '';
+    
+    // Refresh image URLs
+    scenes.forEach(s => {
+        if (s.bg && imageBlobs[s.bg]) {
+            if (imageBlobs[s.bg].blob && (!s.bgUrl || !imageBlobs[s.bg].url)) {
+                try {
+                    const newUrl = URL.createObjectURL(imageBlobs[s.bg].blob);
+                    imageBlobs[s.bg].url = newUrl;
+                    s.bgUrl = newUrl;
+                } catch(e) {
+                    console.warn(`URL refresh failed for ${s.bg}`);
+                }
+            } else if (imageBlobs[s.bg].url) {
+                s.bgUrl = imageBlobs[s.bg].url;
+            }
+        }
+    });
+    
+    scenes.forEach((s, i) => {
+        const card = document.createElement('div');
+        card.className = 'scene-card' + (s.isChoice ? ' is-choice' : '');
+        card.draggable = true;
+        card.dataset.idx = i;
+        card.innerHTML = `
+            <div class="scene-thumb">
+                ${s.bgUrl ? `<img src="${s.bgUrl}">` : ''}
+                ${s.isChoice ? '<span class="scene-choice-badge">選択肢</span>' : ''}
+            </div>
+            <div class="scene-info">
+                <div class="scene-name">${s.name || '(名前なし)'}</div>
+                <div class="scene-text">${s.text || ''}</div>
+                ${s.label ? `<div class="scene-label">🏷 ${s.label}</div>` : ''}
+            </div>
+            <span class="scene-num">#${i + 1}</span>
+            <div class="scene-actions">
+                <button class="scene-btn scene-edit">✎</button>
+                <button class="scene-btn" style="background:#6c5ce7" title="PNG出力">📷</button>
+                <button class="scene-btn scene-del">✕</button>
+            </div>
+        `;
+        card.ondragstart = e => { e.dataTransfer.setData('idx', i); card.classList.add('dragging'); };
+        card.ondragend = () => card.classList.remove('dragging');
+        card.ondragover = e => { e.preventDefault(); card.classList.add('drag-over'); };
+        card.ondragleave = () => card.classList.remove('drag-over');
+        card.ondrop = e => { e.preventDefault(); card.classList.remove('drag-over'); const from = +e.dataTransfer.getData('idx'); if (from !== i) { const [moved] = scenes.splice(from, 1); scenes.splice(i, 0, moved); renderScenes(); saveWithHistory(); } };
+        card.querySelector('.scene-edit').onclick = e => { e.stopPropagation(); loadToEditor(s); };
+        card.querySelector('.scene-btn[title="PNG出力"]').onclick = async e => { 
+            e.stopPropagation(); 
+            await exportSceneToPng(s, i); 
+        };
+        card.querySelector('.scene-del').onclick = e => { e.stopPropagation(); scenes = scenes.filter(x => x.id !== s.id); renderScenes(); saveWithHistory(); };
+        sceneGrid.appendChild(card);
+    });
+}
+
+// Mode toggle
+editModeBtn.onclick = () => { editModeBtn.classList.add('active'); previewModeBtn.classList.remove('active'); sceneGrid.classList.remove('hidden'); previewView.classList.remove('active'); emptyMsg.classList.toggle('hidden', scenes.length > 0); };
+previewModeBtn.onclick = () => {
+    previewModeBtn.classList.add('active');
+    editModeBtn.classList.remove('active');
+    sceneGrid.classList.add('hidden');
+    emptyMsg.classList.add('hidden');
+    previewView.classList.add('active');
+    // Reset game state
+    flags = {};
+    lastChoiceId = null;
+    previewIndex = 0;
+    showPreview();
+};
+
+function findSceneByLabel(label) {
+    const idx = scenes.findIndex(s => s.label === label || String(s.id) === label);
+    return idx >= 0 ? idx : -1;
+}
+
+async function showPreview() {
+    const debugLog = $('debugLog');
+    const isDebug = $('debugMode')?.checked;
+    
+    function log(msg) {
+        if (isDebug && debugLog) {
+            debugLog.classList.remove('hidden');
+            debugLog.innerHTML += `${new Date().toLocaleTimeString()}: ${msg}<br>`;
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+        console.log('[Preview]', msg);
+    }
+    
+    log(`showPreview called. scenes.length=${scenes.length}, previewIndex=${previewIndex}`);
+    
+    choiceOverlay.classList.add('hidden');
+    
+    if (!scenes.length) {
+        log('No scenes');
+        previewInfo.textContent = '0 / 0';
+        previewBgEl.innerHTML = '';
+        previewName.textContent = '';
+        previewText.textContent = 'シーンがありません';
+        prevBtn.disabled = nextBtn.disabled = true;
+        return;
+    }
+    
+    previewIndex = Math.max(0, Math.min(previewIndex, scenes.length - 1));
+    const s = scenes[previewIndex];
+    
+    log(`Scene ${previewIndex}: id=${s.id}, name=${s.name}, bgUrl=${s.bgUrl ? 'yes' : 'no'}, cmd=${s.cmd || 'none'}`);
+    
+    // Run commands first (may skip or jump)
+    try {
+        const result = await runCmdSequence(s.cmd, previewFlash, previewCanvas, true);
+        log(`Cmd result: ${JSON.stringify(result)}`);
+        
+        if (result === 'SKIP') {
+            log('SKIP triggered');
+            if (previewIndex < scenes.length - 1) {
+                previewIndex++;
+                showPreview();
+            }
+            return;
+        }
+        
+        if (result && result.goto) {
+            const idx = findSceneByLabel(result.goto);
+            log(`GOTO ${result.goto} -> index ${idx}`);
+            if (idx >= 0) {
+                previewIndex = idx;
+                showPreview();
+            }
+            return;
+        }
+    } catch (e) {
+        log(`ERROR in runCmdSequence: ${e.message}`);
+    }
+    
+    // Display scene
+    log('Displaying scene...');
+    previewInfo.textContent = `${previewIndex + 1} / ${scenes.length}`;
+    previewBgEl.innerHTML = s.bgUrl ? `<img src="${s.bgUrl}">` : '';
+    previewName.textContent = s.name || '';
+    previewName.style.display = s.name ? 'block' : 'none';
+    previewText.textContent = s.text || '';
+    
+    // Apply text mode
+    const previewTextDisplay = previewCanvas.querySelector('.text-display');
+    if (s.textMode === 'nvl') {
+        previewTextDisplay.classList.add('nvl-mode');
+    } else {
+        previewTextDisplay.classList.remove('nvl-mode');
+    }
+    
+    // Show choices if this is a choice scene
+    if (s.isChoice && s.choices && s.choices.length > 0) {
+        log(`Showing ${s.choices.length} choices`);
+        showChoices(s.choices);
+    }
+    
+    log('showPreview done');
+}
+
+function showChoices(choices) {
+    choiceOverlay.innerHTML = '';
+    choices.forEach(c => {
+        const btn = document.createElement('button');
+        btn.className = 'choice-btn';
+        btn.textContent = c.text || c.id;
+        btn.onclick = () => selectChoice(c);
+        choiceOverlay.appendChild(btn);
+    });
+    choiceOverlay.classList.remove('hidden');
+}
+
+function selectChoice(choice) {
+    lastChoiceId = choice.id;
+    choiceOverlay.classList.add('hidden');
+    
+    if (choice.goto) {
+        const idx = findSceneByLabel(choice.goto);
+        if (idx >= 0) {
+            previewIndex = idx;
+            showPreview();
+            return;
+        }
+    }
+    
+    // Default: go to next scene
+    if (previewIndex < scenes.length - 1) {
+        previewIndex++;
+        showPreview();
+    }
+}
+
+// Keyboard
+let lastUpTime = 0;
+document.onkeydown = e => {
+    if (!previewView.classList.contains('active')) return;
+    
+    // Don't navigate if choices are showing
+    if (!choiceOverlay.classList.contains('hidden')) return;
+    
+    if (e.key === 'ArrowLeft' && previewIndex > 0) { previewIndex--; showPreview(); }
+    if (e.key === 'ArrowRight' && previewIndex < scenes.length - 1) { previewIndex++; showPreview(); }
+    if (e.key === 'ArrowUp') {
+        const now = Date.now();
+        if (now - lastUpTime < 500) {
+            previewView.classList.remove('active');
+            editModeBtn.click();
+        }
+        lastUpTime = now;
+    }
+};
+
+// Double tap to exit preview (for mobile)
+let lastTapTime = 0;
+$('previewExitZone').addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTapTime < 400) {
+        previewView.classList.remove('active');
+        editModeBtn.click();
+    }
+    lastTapTime = now;
+});
+$('previewExitZone').addEventListener('dblclick', () => {
+    previewView.classList.remove('active');
+    editModeBtn.click();
+});
+
+// Tap on canvas to advance (mobile)
+previewCanvas.addEventListener('click', e => {
+    if (!choiceOverlay.classList.contains('hidden')) return;
+    if (previewIndex < scenes.length - 1) { 
+        previewIndex++; 
+        showPreview(); 
+    }
+});
+
+// Prev/Next buttons
+prevBtn.onclick = () => {
+    if (previewIndex > 0) {
+        previewIndex--;
+        showPreview();
+    }
+};
+nextBtn.onclick = () => {
+    if (previewIndex < scenes.length - 1) {
+        previewIndex++;
+        showPreview();
+    }
+};
+
+$('clearAll').onclick = async () => { 
+    if (!confirm('全削除しますか？')) return; 
+    scenes = []; imageBlobs = {}; imageCounter = 0; choiceCounter = 0; 
+    renderScenes(); 
+    // Clear IndexedDB
+    if (db) {
+        const tx = db.transaction(['project', 'images'], 'readwrite');
+        tx.objectStore('project').clear();
+        tx.objectStore('images').clear();
+    }
+};
+
+// Export all scenes as PNG (ZIP)
+$('exportAllPngBtn').onclick = async () => {
+    if (scenes.length === 0) {
+        alert('シーンがありません');
+        return;
+    }
+    
+    const zip = new JSZip();
+    const imgFolder = zip.folder('scenes');
+    
+    for (let i = 0; i < scenes.length; i++) {
+        const scene = scenes[i];
+        
+        // Create temporary render container
+        const container = document.createElement('div');
+        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:832px;height:1216px;';
+        container.innerHTML = `
+            <div class="preview-canvas" style="width:832px;height:1216px;position:relative;background:#000;overflow:hidden;">
+                <div class="preview-bg" style="position:absolute;inset:0;">
+                    ${scene.bgUrl ? `<img src="${scene.bgUrl}" style="width:100%;height:100%;object-fit:cover;">` : ''}
+                </div>
+                <div class="text-display ${scene.textMode === 'nvl' ? 'nvl-mode' : ''}" style="position:absolute;${scene.textMode === 'nvl' ? 'inset:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:flex-start;padding:3% 4%;' : 'bottom:5%;left:4%;right:4%;'}">
+                    ${scene.name ? `<div class="char-name" style="font-size:${scene.textMode === 'nvl' ? '29px' : '33px'};font-weight:700;color:#fff;text-shadow:0 0 4px #000,0 0 4px #000,2px 2px 4px #000,-2px -2px 4px #000,2px -2px 4px #000,-2px 2px 4px #000;margin-bottom:${scene.textMode === 'nvl' ? '1%' : '2%'};">${scene.name}</div>` : ''}
+                    <div class="dialogue" style="font-size:${scene.textMode === 'nvl' ? '25px' : '27px'};line-height:${scene.textMode === 'nvl' ? '2' : '1.6'};color:#fff;text-shadow:0 0 4px #000,0 0 4px #000,2px 2px 4px #000,-2px -2px 4px #000,2px -2px 4px #000,-2px 2px 4px #000;white-space:pre-wrap;">${scene.text || ''}</div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(container);
+        
+        try {
+            const canvas = await html2canvas(container.querySelector('.preview-canvas'), {
+                scale: 1,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#000',
+                width: 832,
+                height: 1216
+            });
+            
+            // Convert to blob and add to zip
+            const dataUrl = canvas.toDataURL('image/png');
+            const base64 = dataUrl.split(',')[1];
+            imgFolder.file(`scene-${String(i + 1).padStart(3, '0')}.png`, base64, { base64: true });
+            
+        } catch (err) {
+            console.error(err);
+        } finally {
+            document.body.removeChild(container);
+        }
+    }
+    
+    // Download ZIP
+    try {
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'scenes-png.zip';
+        a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        console.error(err);
+        alert('ZIP作成エラー: ' + err.message);
+    }
+};
+
+// History UI
+const historyModal = $('historyModal');
+const historyList = $('historyList');
+
+$('historyBtn').onclick = async () => {
+    const list = await getHistoryList();
+    if (list.length === 0) {
+        historyList.innerHTML = '<div class="no-history">履歴がありません</div>';
+    } else {
+        historyList.innerHTML = list.map(h => `
+            <div class="history-item" data-id="${h.id}">
+                <div class="history-date">${h.date}</div>
+                <div class="history-info">${h.sceneCount} シーン</div>
+            </div>
+        `).join('');
+        
+        historyList.querySelectorAll('.history-item').forEach(item => {
+            item.onclick = async () => {
+                if (!confirm('この履歴に復元しますか？現在のデータは上書きされます。')) return;
+                const success = await restoreFromHistory(+item.dataset.id);
+                if (success) {
+                    historyModal.classList.add('hidden');
+                    alert('復元しました！');
+                } else {
+                    alert('復元に失敗しました');
+                }
+            };
+        });
+    }
+    historyModal.classList.remove('hidden');
+};
+
+$('closeHistoryBtn').onclick = () => historyModal.classList.add('hidden');
+historyModal.onclick = e => { if (e.target === historyModal) historyModal.classList.add('hidden'); };
+
+// ===== ZIP =====
+$('loadZip').onclick = () => $('zipInput').click();
+$('zipInput').onchange = async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+        // Save current state to history before loading
+        await saveToHistory();
+        
+        const zip = await JSZip.loadAsync(file);
+        scenes = []; imageBlobs = {}; imageCounter = 0; choiceCounter = 0;
+        
+        // Load images
+        const imgFolder = zip.folder('images');
+        if (imgFolder) {
+            const files = []; imgFolder.forEach((p, f) => { if (!f.dir) files.push({ p, f }); });
+            for (const { p, f } of files) {
+                const blob = await f.async('blob');
+                const url = URL.createObjectURL(blob);
+                imageBlobs[p] = { url, blob };
+                const num = parseInt(p.split('.')[0]);
+                if (!isNaN(num) && num > imageCounter) imageCounter = num;
+            }
+        }
+        
+        // Load audio
+        const audioFolder = zip.folder('audio');
+        if (audioFolder) {
+            const audioFiles = [];
+            audioFolder.forEach((p, f) => { if (!f.dir) audioFiles.push({ p, f }); });
+            for (const { p, f } of audioFiles) {
+                const blob = await f.async('blob');
+                const url = URL.createObjectURL(blob);
+                const name = p.toLowerCase();
+                if (name.includes('se1')) { 
+                    audioData.se1 = url; audio.se1.src = url; audioBlobs.se1 = blob;
+                    $('se1Btn').textContent = p; $('se1Btn').classList.add('loaded'); $('se1Play').disabled = false;
+                }
+                else if (name.includes('se2')) { 
+                    audioData.se2 = url; audio.se2.src = url; audioBlobs.se2 = blob;
+                    $('se2Btn').textContent = p; $('se2Btn').classList.add('loaded'); $('se2Play').disabled = false;
+                }
+                else if (name.includes('se3')) { 
+                    audioData.se3 = url; audio.se3.src = url; audioBlobs.se3 = blob;
+                    $('se3Btn').textContent = p; $('se3Btn').classList.add('loaded'); $('se3Play').disabled = false;
+                }
+                else if (name.includes('bgm')) { 
+                    audioData.bgm = url; audio.bgm.src = url; audioBlobs.bgm = blob;
+                    $('bgmBtn').textContent = p; $('bgmBtn').classList.add('loaded'); $('bgmPlay').disabled = false;
+                }
+            }
+        }
+        
+        // Load data.json
+        const dataFile = zip.file('data.json');
+        if (dataFile) {
+            const json = await dataFile.async('string');
+            const data = JSON.parse(json);
+            scenes = (data.scenes || []).map(s => ({ 
+                ...s, 
+                uuid: s.uuid || crypto.randomUUID(),
+                bgUrl: s.bg && imageBlobs[s.bg] ? imageBlobs[s.bg].url : null 
+            }));
+            // Restore choice counter
+            scenes.forEach(s => {
+                if (s.choices) {
+                    s.choices.forEach(c => {
+                        const m = c.id.match(/^A-(\d+)$/);
+                        if (m && +m[1] > choiceCounter) choiceCounter = +m[1];
+                    });
+                }
+            });
+        }
+        renderScenes(); resetEditor(); 
+        await saveToIndexedDB();
+        alert('読み込み完了！');
+    } catch (err) { console.error(err); alert('読み込みエラー: ' + err.message); }
+};
+
+$('saveZip').onclick = async () => {
+    try {
+        const zip = new JSZip();
+        const imgFolder = zip.folder('images');
+        const audioFolder = zip.folder('audio');
+        
+        // Save images
+        const usedImages = new Set();
+        scenes.forEach(s => { if (s.bg) usedImages.add(s.bg); });
+        for (const filename of usedImages) {
+            const imgData = imageBlobs[filename];
+            if (imgData) {
+                const blob = imgData.blob || imgData.file;
+                if (blob) imgFolder.file(filename, blob);
+            }
+        }
+        
+        // Save audio files
+        if (audioBlobs.se1) audioFolder.file('se1.' + getExt(audioBlobs.se1.name), audioBlobs.se1);
+        if (audioBlobs.se2) audioFolder.file('se2.' + getExt(audioBlobs.se2.name), audioBlobs.se2);
+        if (audioBlobs.se3) audioFolder.file('se3.' + getExt(audioBlobs.se3.name), audioBlobs.se3);
+        if (audioBlobs.bgm) audioFolder.file('bgm.' + getExt(audioBlobs.bgm.name), audioBlobs.bgm);
+        
+        const data = { 
+            scenes: scenes.map(s => ({ 
+                id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, 
+                label: s.label, bg: s.bg, textMode: s.textMode, isChoice: s.isChoice, choices: s.choices 
+            }))
+        };
+        zip.file('data.json', JSON.stringify(data, null, 2));
+        const content = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(content);
+        const a = document.createElement('a'); a.href = url; a.download = 'vn-project.zip'; a.click();
+        URL.revokeObjectURL(url);
+    } catch (err) { console.error(err); alert('保存エラー: ' + err.message); }
+};
+
+function getExt(filename) {
+    return filename.split('.').pop() || 'mp3';
+}
+
+// Save before page unload
+window.addEventListener('beforeunload', () => {
+    clearTimeout(saveTimer);
+    saveToIndexedDB();
+});
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        clearTimeout(saveTimer);
+        saveToIndexedDB();
+        throttledHistorySave(); // タブ非表示時も履歴保存試行
+    }
+});
+
+// PNG Export
+async function exportSceneToPng(scene, index) {
+    // Create temporary render container
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:832px;height:1216px;';
+    container.innerHTML = `
+        <div class="preview-canvas" style="width:832px;height:1216px;position:relative;background:#000;overflow:hidden;">
+            <div class="preview-bg" style="position:absolute;inset:0;">
+                ${scene.bgUrl ? `<img src="${scene.bgUrl}" style="width:100%;height:100%;object-fit:cover;">` : ''}
+            </div>
+            <div class="text-display ${scene.textMode === 'nvl' ? 'nvl-mode' : ''}" style="position:absolute;${scene.textMode === 'nvl' ? 'inset:0;background:rgba(0,0,0,0.6);display:flex;flex-direction:column;justify-content:flex-start;padding:3% 4%;' : 'bottom:5%;left:4%;right:4%;'}">
+                ${scene.name ? `<div class="char-name" style="font-size:${scene.textMode === 'nvl' ? '29px' : '33px'};font-weight:700;color:#fff;text-shadow:0 0 4px #000,0 0 4px #000,2px 2px 4px #000,-2px -2px 4px #000,2px -2px 4px #000,-2px 2px 4px #000;margin-bottom:${scene.textMode === 'nvl' ? '1%' : '2%'};">${scene.name}</div>` : ''}
+                <div class="dialogue" style="font-size:${scene.textMode === 'nvl' ? '25px' : '27px'};line-height:${scene.textMode === 'nvl' ? '2' : '1.6'};color:#fff;text-shadow:0 0 4px #000,0 0 4px #000,2px 2px 4px #000,-2px -2px 4px #000,2px -2px 4px #000,-2px 2px 4px #000;white-space:pre-wrap;">${scene.text || ''}</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(container);
+    
+    try {
+        const canvas = await html2canvas(container.querySelector('.preview-canvas'), {
+            scale: 1,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#000',
+            width: 832,
+            height: 1216
+        });
+        const link = document.createElement('a');
+        link.download = `scene-${String(index + 1).padStart(3, '0')}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch (err) {
+        console.error(err);
+        alert('PNG出力エラー: ' + err.message);
+    } finally {
+        document.body.removeChild(container);
+    }
+}
+
+$('exportPngBtn').onclick = async () => {
+    try {
+        const canvas = await html2canvas(editorCanvas, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#000'
+        });
+        const link = document.createElement('a');
+        link.download = `scene-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch (err) {
+        console.error(err);
+        alert('PNG出力エラー: ' + err.message);
+    }
+};
+
+// Init
+(async () => {
+    await initDB();
+    await loadFromIndexedDB();
+    renderScenes();
+})();
+</script>
+</body>
+</html>
