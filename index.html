@@ -645,19 +645,66 @@ nameInput.oninput = () => { editorName.textContent = nameInput.value; editorName
 textInput.oninput = () => { editorText.textContent = textInput.value; };
 
 imgBtn.onclick = () => imgInput.click();
-imgInput.onchange = e => {
+
+// 画像圧縮関数
+async function compressImage(file, maxWidth = 768, maxHeight = 1216, quality = 0.85) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            // 元サイズを維持（リサイズしない）
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            
+            // JPEG 85%で圧縮
+            canvas.toBlob((blob) => {
+                URL.revokeObjectURL(img.src);
+                resolve(blob);
+            }, 'image/jpeg', quality);
+        };
+        img.src = URL.createObjectURL(file);
+    });
+}
+
+imgInput.onchange = async e => {
     const file = e.target.files[0];
     if (!file) return;
-    imageCounter++;
-    const ext = file.name.split('.').pop();
-    const filename = String(imageCounter).padStart(3, '0') + '.' + ext;
-    const url = URL.createObjectURL(file);
-    imageBlobs[filename] = { url, file };
-    currentBgFile = filename;
-    currentBgUrl = url;
-    editorBg.innerHTML = `<img src="${url}">`;
-    imgBtn.textContent = filename;
-    imgBtn.classList.add('loaded');
+    
+    imgBtn.textContent = '圧縮中...';
+    
+    try {
+        // 圧縮
+        const compressedBlob = await compressImage(file);
+        const originalSize = (file.size / 1024).toFixed(0);
+        const compressedSize = (compressedBlob.size / 1024).toFixed(0);
+        console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB`);
+        
+        imageCounter++;
+        const filename = String(imageCounter).padStart(3, '0') + '.jpg';
+        const url = URL.createObjectURL(compressedBlob);
+        imageBlobs[filename] = { url, blob: compressedBlob };
+        currentBgFile = filename;
+        currentBgUrl = url;
+        editorBg.innerHTML = `<img src="${url}">`;
+        imgBtn.textContent = filename + ` (${compressedSize}KB)`;
+        imgBtn.classList.add('loaded');
+    } catch (err) {
+        console.error('Compression error:', err);
+        // フォールバック: 圧縮失敗時は元ファイルを使用
+        imageCounter++;
+        const ext = file.name.split('.').pop();
+        const filename = String(imageCounter).padStart(3, '0') + '.' + ext;
+        const url = URL.createObjectURL(file);
+        imageBlobs[filename] = { url, file };
+        currentBgFile = filename;
+        currentBgUrl = url;
+        editorBg.innerHTML = `<img src="${url}">`;
+        imgBtn.textContent = filename;
+        imgBtn.classList.add('loaded');
+    }
 };
 
 // Text Mode toggle
