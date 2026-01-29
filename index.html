@@ -384,10 +384,9 @@ async function initDB() {
 async function saveToIndexedDB() {
     if (!db) await initDB();
     try {
-        const tx = db.transaction(['project', 'images'], 'readwrite');
-        
-        // Save project data
-        const projectStore = tx.objectStore('project');
+        // Save project data first
+        const tx1 = db.transaction('project', 'readwrite');
+        const projectStore = tx1.objectStore('project');
         const projectData = {
             id: 'main',
             scenes: scenes.map(s => ({
@@ -398,17 +397,26 @@ async function saveToIndexedDB() {
             choiceCounter
         };
         projectStore.put(projectData);
+        await new Promise((res, rej) => { tx1.oncomplete = res; tx1.onerror = () => rej(tx1.error); });
         
-        // Save images
-        const imgStore = tx.objectStore('images');
+        // Save images separately (one at a time to avoid quota issues)
+        const imgStore = db.transaction('images', 'readwrite').objectStore('images');
         for (const [filename, data] of Object.entries(imageBlobs)) {
             if (data.file || data.blob) {
-                imgStore.put({ id: filename, blob: data.file || data.blob });
+                try {
+                    const tx2 = db.transaction('images', 'readwrite');
+                    tx2.objectStore('images').put({ id: filename, blob: data.file || data.blob });
+                    await new Promise((res, rej) => { tx2.oncomplete = res; tx2.onerror = () => rej(tx2.error); });
+                } catch (imgErr) {
+                    console.warn(`Image save error for ${filename}:`, imgErr);
+                }
             }
         }
-        
-        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-    } catch (e) { console.warn('Auto save error:', e); }
+        console.log('SaveToIndexedDB complete');
+    } catch (e) { 
+        console.error('Auto save error:', e);
+        alert('保存エラー: ' + e.message);
+    }
 }
 
 async function saveToHistory() {
@@ -911,6 +919,24 @@ function renderScenes() {
     sceneCount.textContent = scenes.length + ' シーン';
     emptyMsg.classList.toggle('hidden', scenes.length > 0);
     sceneGrid.innerHTML = '';
+    
+    // Refresh image URLs
+    scenes.forEach(s => {
+        if (s.bg && imageBlobs[s.bg]) {
+            if (imageBlobs[s.bg].blob && (!s.bgUrl || !imageBlobs[s.bg].url)) {
+                try {
+                    const newUrl = URL.createObjectURL(imageBlobs[s.bg].blob);
+                    imageBlobs[s.bg].url = newUrl;
+                    s.bgUrl = newUrl;
+                } catch(e) {
+                    console.warn(`URL refresh failed for ${s.bg}`);
+                }
+            } else if (imageBlobs[s.bg].url) {
+                s.bgUrl = imageBlobs[s.bg].url;
+            }
+        }
+    });
+    
     scenes.forEach((s, i) => {
         const card = document.createElement('div');
         card.className = 'scene-card' + (s.isChoice ? ' is-choice' : '');

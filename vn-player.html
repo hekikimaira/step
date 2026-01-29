@@ -59,12 +59,14 @@
         .choice-btn{background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:3cqw 6cqw;font-size:3cqw;font-weight:300;letter-spacing:0.1em;cursor:pointer;min-width:60%;text-align:center;transition:all 0.3s;pointer-events:auto}
         .choice-btn:hover{background:rgba(255,255,255,0.15);border-color:rgba(255,255,255,0.5)}
         
-        /* Control Panel - Right side vertical */
-        .control-panel{position:absolute;top:2cqw;right:2cqw;display:flex;flex-direction:column;gap:1.5cqw;z-index:30}
+        /* Control Panel - Hamburger menu style */
+        .control-panel{position:absolute;bottom:2cqw;right:2cqw;display:flex;flex-direction:column-reverse;align-items:flex-end;gap:1.5cqw;z-index:30}
         .ctrl-btn{width:7cqw;height:7cqw;background:rgba(0,0,0,0.4);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);font-size:2.2cqw;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s}
         .ctrl-btn:hover{background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.3)}
         .ctrl-btn.active{background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.4)}
         .ctrl-btn svg{width:3cqw;height:3cqw;stroke:currentColor;stroke-width:1.5;fill:none}
+        .ctrl-menu{display:flex;flex-direction:column;gap:1.5cqw;max-height:0;overflow:hidden;transition:max-height 0.3s ease,opacity 0.3s ease;opacity:0}
+        .ctrl-menu.open{max-height:50cqw;opacity:1}
         
         /* Status indicator */
         .status-bar{position:absolute;top:2cqw;left:2cqw;display:flex;gap:1cqw;z-index:25}
@@ -114,12 +116,12 @@
         .gallery-item.locked::after{content:'';position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
         .gallery-item.new::before{content:'';position:absolute;top:8px;right:8px;width:6px;height:6px;background:#fff;border-radius:50%;z-index:1}
         
-        /* Backlog */
-        .backlog-list{max-height:50vh;overflow-y:auto}
-        .backlog-item{border-bottom:1px solid var(--border);padding:16px 0;cursor:pointer;transition:all 0.2s}
-        .backlog-item:hover{background:var(--accent-subtle)}
-        .backlog-name{font-size:11px;color:var(--text-dim);letter-spacing:0.05em}
-        .backlog-text{font-size:12px;color:var(--text);margin-top:6px;line-height:1.6}
+        /* Backlog - NVL style */
+        .backlog-list{max-height:60vh;overflow-y:auto;padding:16px;background:rgba(0,0,0,0.3);border-radius:4px}
+        .backlog-item{padding:12px 0;border-bottom:1px solid var(--border)}
+        .backlog-item:last-child{border-bottom:none}
+        .backlog-name{font-size:13px;color:var(--text);font-weight:700;margin-bottom:4px}
+        .backlog-text{font-size:13px;color:var(--text-dim);line-height:1.8;white-space:pre-wrap}
         
         /* New scenes banner */
         .new-scenes-banner{position:absolute;bottom:18%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.7);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.2);color:#fff;padding:2cqw 4cqw;font-size:2cqw;font-weight:300;letter-spacing:0.1em;z-index:50;cursor:pointer}
@@ -152,24 +154,29 @@
         
         <!-- Control Panel -->
         <div class="control-panel">
-            <button class="ctrl-btn" id="hamburgerBtn" title="メニュー">
+            <button class="ctrl-btn" id="ctrlToggleBtn" title="メニュー">
                 <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
             </button>
-            <button class="ctrl-btn" id="hideTextBtn" title="テキスト非表示">
-                <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-            </button>
-            <button class="ctrl-btn" id="autoBtn" title="オート">
-                <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            </button>
-            <button class="ctrl-btn" id="skipBtn" title="スキップ">
-                <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
-            </button>
-            <button class="ctrl-btn" id="qsaveBtn" title="クイックセーブ">
-                <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-            </button>
-            <button class="ctrl-btn" id="qloadBtn" title="クイックロード">
-                <svg viewBox="0 0 24 24"><path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
-            </button>
+            <div class="ctrl-menu" id="ctrlMenu">
+                <button class="ctrl-btn" id="hamburgerBtn" title="サイドメニュー">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+                </button>
+                <button class="ctrl-btn" id="hideTextBtn" title="テキスト非表示">
+                    <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+                <button class="ctrl-btn" id="autoBtn" title="オート">
+                    <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </button>
+                <button class="ctrl-btn" id="skipBtn" title="スキップ">
+                    <svg viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+                </button>
+                <button class="ctrl-btn" id="qsaveBtn" title="クイックセーブ">
+                    <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                </button>
+                <button class="ctrl-btn" id="qloadBtn" title="クイックロード">
+                    <svg viewBox="0 0 24 24"><path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                </button>
+            </div>
         </div>
         
         <div class="new-scenes-banner hidden" id="newScenesBanner">NEW SCENES AVAILABLE</div>
@@ -196,7 +203,7 @@
 <div class="modal-overlay hidden" id="saveModal"><div class="modal"><div class="modal-title">Save</div><div id="saveSlots"></div><button class="modal-close" id="closeSaveModal">Close</button></div></div>
 <div class="modal-overlay hidden" id="loadModal"><div class="modal"><div class="modal-title">Load</div><div id="loadSlots"></div><button class="modal-close" id="closeLoadModal">Close</button></div></div>
 <div class="modal-overlay hidden" id="galleryModal"><div class="modal" style="max-width:480px"><div class="modal-title">Gallery</div><div class="gallery-grid" id="galleryGrid"></div><button class="modal-close" id="closeGalleryModal">Close</button></div></div>
-<div class="modal-overlay hidden" id="backlogModal"><div class="modal" style="max-width:420px"><div class="modal-title">Backlog</div><div class="backlog-list" id="backlogList"></div><button class="modal-close" id="closeBacklogModal">Close</button></div></div>
+<div class="modal-overlay hidden" id="backlogModal"><div class="modal" style="max-width:90%;width:500px;max-height:85vh"><div class="modal-title">Backlog</div><div class="backlog-list" id="backlogList"></div><button class="modal-close" id="closeBacklogModal">Close</button></div></div>
 <div class="modal-overlay hidden" id="settingsModal"><div class="modal"><div class="modal-title">Settings</div><div class="setting-row"><span class="setting-label">BGM</span><input type="range" class="setting-slider" id="settingsBgmVolume" min="0" max="100" value="70"></div><div class="setting-row"><span class="setting-label">SE</span><input type="range" class="setting-slider" id="settingsSeVolume" min="0" max="100" value="100"></div><div class="setting-row"><span class="setting-label">Speed</span><input type="range" class="setting-slider" id="settingsTextSpeed" min="0" max="100" value="70"></div><div class="side-menu-title">Font Size</div><div class="size-btns" id="settingsSizeBtns"><button class="size-btn" data-size="s">S</button><button class="size-btn active" data-size="m">M</button><button class="size-btn" data-size="l">L</button></div><button class="modal-close" id="closeSettingsModal">Close</button></div></div>
 <script>
 let scenes=[],imageBlobs={},currentIndex=0,flags={},lastChoiceId=null,seenScenes=new Set(),newSceneUUIDs=new Set(),isGalleryMode=false,backlog=[];
@@ -253,11 +260,11 @@ async function playSE(k,c){if(!audioData[k])return;audio[k].volume=seVolume;for(
 async function runCmd(cmd){cmd=cmd.toUpperCase().trim();if(cmd.startsWith('@'))cmd=cmd.slice(1);let m;m=cmd.match(/^([123])SE(\d+)$/);if(m){await playSE('se'+m[1],+m[2]);return null}m=cmd.match(/^FLASH(\d*)$/);if(m){const n=+m[1]||1;for(let i=0;i<n;i++){doFlash();if(i<n-1)await sleep(150)}return null}m=cmd.match(/^SHAKE(\d*)$/);if(m){const n=+m[1]||1;for(let i=0;i<n;i++){doShake();if(i<n-1)await sleep(300)}return null}if(cmd==='BGM'&&audioData.bgm){audio.bgm.volume=bgmVolume;if(audio.bgm.paused)audio.bgm.play();else audio.bgm.pause();return null}m=cmd.match(/^SETFLAG:(.+)$/);if(m){flags[m[1]]=true;return null}m=cmd.match(/^IFFLAG:(.+):SKIP$/);if(m){if(flags[m[1]])return'SKIP';return null}m=cmd.match(/^IFFLAG:(.+):GOTO:(.+)$/);if(m){if(flags[m[1]])return{goto:m[2]};return null}m=cmd.match(/^NOTFLAG:(.+):GOTO:(.+)$/);if(m){if(!flags[m[1]])return{goto:m[2]};return null}m=cmd.match(/^FROM:(.+):SKIP$/);if(m){if(lastChoiceId===m[1])return'SKIP';return null}m=cmd.match(/^FROM:(.+):GOTO:(.+)$/);if(m){if(lastChoiceId===m[1])return{goto:m[2]};return null}return null}
 async function runCmdSequence(str){if(!str)return null;const lines=str.split('\n').map(l=>l.trim()).filter(l=>l);for(const line of lines){const parts=line.split(',').map(s=>s.trim()).filter(s=>s);for(let i=0;i<parts.length;i++){const group=[parts[i]];while(i+1<parts.length&&parts[i+1].startsWith('@')){group.push(parts[++i])}const results=await Promise.all(group.map(c=>runCmd(c)));for(const r of results){if(r==='SKIP')return'SKIP';if(r&&r.goto)return r}}}return null}
 function openGallery(){const g=$('galleryGrid');g.innerHTML='';scenes.forEach((s,i)=>{if(!s.bgUrl)return;const seen=seenScenes.has(s.uuid);const isNew=newSceneUUIDs.has(s.uuid);const item=document.createElement('div');item.className='gallery-item'+(seen?'':' locked')+(isNew?' new':'');if(seen){item.innerHTML=`<img src="${s.bgUrl}">`;item.onclick=()=>{$('galleryModal').classList.add('hidden');isGalleryMode=true;currentIndex=i;topMenu.classList.add('hidden');gameContainer.classList.remove('hidden');showScene()}}g.appendChild(item)});$('galleryModal').classList.remove('hidden')}
-function openBacklog(){const l=$('backlogList');l.innerHTML='';if(backlog.length===0){l.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:24px;">No backlog</div>'}else{[...backlog].reverse().forEach(e=>{const item=document.createElement('div');item.className='backlog-item';item.innerHTML=`${e.name?`<div class="backlog-name">${e.name}</div>`:''}<div class="backlog-text">${e.text}</div>`;item.onclick=()=>{$('backlogModal').classList.add('hidden');sideMenu.classList.remove('open');currentIndex=e.index;showScene()};l.appendChild(item)})}$('backlogModal').classList.remove('hidden')}
+function openBacklog(){const l=$('backlogList');l.innerHTML='';if(backlog.length===0){l.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:24px;">No backlog</div>'}else{backlog.forEach(e=>{const item=document.createElement('div');item.className='backlog-item';item.innerHTML=`${e.name?`<div class="backlog-name">${e.name}</div>`:''}<div class="backlog-text">${e.text}</div>`;l.appendChild(item)});l.scrollTop=l.scrollHeight}$('backlogModal').classList.remove('hidden')}
 function openSaveModal(){const c=$('saveSlots');c.innerHTML='';const qi=getSlotInfo(-1);const qs=document.createElement('div');qs.className='save-slot save-slot-quick'+(qi.exists?'':' empty');qs.innerHTML=`<div class="save-slot-title">Quick Save</div><div class="save-slot-info">${qi.exists?qi.date:'Empty'}</div>`;qs.onclick=()=>{quickSave();$('saveModal').classList.add('hidden')};c.appendChild(qs);const ai=getSlotInfo(0);const as=document.createElement('div');as.className='save-slot save-slot-auto'+(ai.exists?'':' empty');as.innerHTML=`<div class="save-slot-title">Auto Save</div><div class="save-slot-info">${ai.exists?ai.date:'Empty'}</div>`;c.appendChild(as);for(let i=1;i<=10;i++){const info=getSlotInfo(i);const slot=document.createElement('div');slot.className='save-slot'+(info.exists?'':' empty');slot.innerHTML=`<div class="save-slot-title">Slot ${i}</div><div class="save-slot-info">${info.exists?`${info.date}`:'Empty'}</div>`;slot.onclick=()=>{saveSlot(i);showToast('Saved');$('saveModal').classList.add('hidden')};c.appendChild(slot)}$('saveModal').classList.remove('hidden')}
 function openLoadModal(){const c=$('loadSlots');c.innerHTML='';const qi=getSlotInfo(-1);if(qi.exists){const qs=document.createElement('div');qs.className='save-slot save-slot-quick';qs.innerHTML=`<div class="save-slot-title">Quick Save</div><div class="save-slot-info">${qi.date}</div>`;qs.onclick=()=>{$('loadModal').classList.add('hidden');sideMenu.classList.remove('open');quickLoad()};c.appendChild(qs)}const ai=getSlotInfo(0);if(ai.exists){const as=document.createElement('div');as.className='save-slot save-slot-auto';as.innerHTML=`<div class="save-slot-title">Auto Save</div><div class="save-slot-info">${ai.date}</div>`;as.onclick=()=>{if(loadSlot(0)){$('loadModal').classList.add('hidden');sideMenu.classList.remove('open');showScene()}};c.appendChild(as)}for(let i=1;i<=10;i++){const info=getSlotInfo(i);if(!info.exists)continue;const slot=document.createElement('div');slot.className='save-slot';slot.innerHTML=`<div class="save-slot-title">Slot ${i}</div><div class="save-slot-info">${info.date}</div>`;slot.onclick=()=>{if(loadSlot(i)){$('loadModal').classList.add('hidden');sideMenu.classList.remove('open');showScene()}};c.appendChild(slot)}if(c.children.length===0){c.innerHTML='<div style="text-align:center;color:var(--text-dim);padding:24px;">No save data</div>'}$('loadModal').classList.remove('hidden')}
 $('startBtn').onclick=()=>startGame(0);$('continueBtn').onclick=continueGame;$('newScenesBtn').onclick=goToNewScenes;$('galleryBtn').onclick=openGallery;$('settingsBtn').onclick=()=>$('settingsModal').classList.remove('hidden');
-$('hamburgerBtn').onclick=()=>sideMenu.classList.toggle('open');$('closeSideMenu').onclick=()=>sideMenu.classList.remove('open');
+$('ctrlToggleBtn').onclick=()=>$('ctrlMenu').classList.toggle('open');$('hamburgerBtn').onclick=()=>sideMenu.classList.toggle('open');$('closeSideMenu').onclick=()=>sideMenu.classList.remove('open');
 $('sideMenuSave').onclick=()=>{sideMenu.classList.remove('open');openSaveModal()};$('sideMenuLoad').onclick=()=>{sideMenu.classList.remove('open');openLoadModal()};$('sideMenuBacklog').onclick=()=>{sideMenu.classList.remove('open');openBacklog()};$('sideMenuGallery').onclick=()=>{sideMenu.classList.remove('open');openGallery()};$('sideMenuTitle').onclick=returnToTitle;
 $('hideTextBtn').onclick=toggleTextHidden;$('autoBtn').onclick=toggleAuto;$('skipBtn').onclick=toggleSkip;$('qsaveBtn').onclick=quickSave;$('qloadBtn').onclick=quickLoad;
 $('closeSaveModal').onclick=()=>$('saveModal').classList.add('hidden');$('closeLoadModal').onclick=()=>$('loadModal').classList.add('hidden');$('closeGalleryModal').onclick=()=>$('galleryModal').classList.add('hidden');$('closeBacklogModal').onclick=()=>$('backlogModal').classList.add('hidden');$('closeSettingsModal').onclick=()=>$('settingsModal').classList.add('hidden');
