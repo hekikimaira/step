@@ -2019,12 +2019,15 @@ $('zipInput').onchange = async e => {
         const imgFolder = zip.folder('images');
         if (imgFolder) {
             const files = []; imgFolder.forEach((p, f) => { if (!f.dir) files.push({ p, f }); });
+            console.log('ZIP images:', files.map(x => x.p));
             for (const { p, f } of files) {
                 const blob = await f.async('blob');
                 const url = URL.createObjectURL(blob);
                 // オーバーレイ画像かどうかチェック
+                console.log('Processing image:', p, 'startsWith ov:', p.startsWith('ov'));
                 if (p.startsWith('ov')) {
                     overlayBlobs[p] = { url, blob };
+                    console.log('Added to overlayBlobs:', p);
                     const num = parseInt(p.slice(2).split('.')[0]);
                     if (!isNaN(num) && num > overlayCounter) overlayCounter = num;
                 } else {
@@ -2089,7 +2092,7 @@ $('zipInput').onchange = async e => {
         }
         renderScenes(); resetEditor(); renderOverlayList();
         await saveToIndexedDB();
-        alert('読み込み完了！');
+        alert(`読み込み完了！\nOverlays: ${Object.keys(overlayBlobs).join(', ') || '(なし)'}`);
     } catch (err) { console.error(err); alert('読み込みエラー: ' + err.message); }
 };
 
