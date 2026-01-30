@@ -374,7 +374,17 @@
                     <code>IFCOUNTER:名前:>=:3:GOTO:ラベル</code><br>
                     <code>IFCOUNTER:名前:==:0:SKIP</code><br>
                     <span style="color:#e94560">── オーバーレイ ──</span><br>
-                    <code>OVERLAY:file.png:方向:パス:速度:easing:loop</code><br>
+                    <code>OVERLAY:file:方向:パス:速度:easing:loop</code><br>
+                    <span style="font-size:10px;color:#888">
+                    方向: top/bottom/left/right<br>
+                    パス: 開始%&gt;終点% (|で待機ms)<br>
+                    速度: ms数/slow/normal/fast<br>
+                    easing: easeOut/easeIn/linear/bounce<br>
+                    loop: 数字 or "loop"</span><br>
+                    <code style="font-size:9px">OVERLAY:ov001.png:top:-100&gt;50:500ms</code><br>
+                    <span style="font-size:9px;color:#666">↑上から中央へ降りてくる</span><br>
+                    <code style="font-size:9px">OVERLAY:ov001.png:bottom:100&gt;20|1000&gt;100:300ms</code><br>
+                    <span style="font-size:9px;color:#666">↑下から出て1秒待って戻る</span><br>
                     <code>OVERLAY:CLEAR</code> / <code>OVERLAY:CLEAR:fade</code>
                 </div>
                 <button class="btn btn-primary" id="cmdExec" style="margin-top:8px">実行</button>
