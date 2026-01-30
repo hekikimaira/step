@@ -7,6 +7,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        // グローバルエラーハンドラ（デバッグ用）
+        window.onerror = function(msg, url, line, col, error) {
+            console.error('Global error:', msg, 'at line', line);
+            if (document.getElementById('debugMode')?.checked) {
+                alert('エラー: ' + msg + ' (line ' + line + ')');
+            }
+            return false;
+        };
+        window.onunhandledrejection = function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            if (document.getElementById('debugMode')?.checked) {
+                alert('Promise エラー: ' + e.reason);
+            }
+        };
+    </script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Noto Sans JP', sans-serif; background: #1a1a1a; color: #eee; min-height: 100vh; }
@@ -602,10 +618,12 @@ async function autoSave() {
     isSaving = true;
     try {
         await saveToIndexedDB();
+        console.log('Auto save complete');
     } catch (e) {
         console.error('Auto save failed:', e);
+    } finally {
+        isSaving = false;
     }
-    isSaving = false;
     
     // If there was a pending save during save, do it now
     if (pendingSave) {
@@ -622,14 +640,18 @@ async function throttledHistorySave() {
     const now = Date.now();
     if (now - lastHistorySave >= HISTORY_INTERVAL) {
         lastHistorySave = now;
-        await saveToHistory();
+        try {
+            await saveToHistory();
+        } catch (e) {
+            console.error('History save failed:', e);
+        }
     }
 }
 
 // Combined save: auto save + throttled history
-async function saveWithHistory() {
+function saveWithHistory() {
     autoSave();
-    await throttledHistorySave();
+    throttledHistorySave();
 }
 
 // ===== State =====
@@ -1034,6 +1056,30 @@ function loadToEditor(scene) {
     document.querySelector('[data-tab="editor"]').click();
 }
 
+// シーンをコピーしてエディタに読み込み（新規として）
+function copySceneToEditor(scene) {
+    // editingIdはnullのまま（新規扱い）
+    editingId = null;
+    nameInput.value = scene.name || ''; textInput.value = scene.text || ''; cmdInput.value = scene.cmd || ''; labelInput.value = '';  // ラベルはコピーしない
+    currentBgFile = scene.bg || null; currentBgUrl = scene.bgUrl || null;
+    editorName.textContent = scene.name || ''; editorName.style.display = scene.name ? 'block' : 'none';
+    editorText.textContent = scene.text || '';
+    if (scene.bgUrl) { editorBg.innerHTML = `<img src="${scene.bgUrl}">`; imgBtn.textContent = scene.bg + ' (コピー)'; imgBtn.classList.add('loaded'); }
+    else { editorBg.innerHTML = ''; imgBtn.textContent = '画像を選択'; imgBtn.classList.remove('loaded'); }
+    
+    setTextMode(scene.textMode || 'adv');
+    $('transitionSelect').value = scene.transition || 'none';
+    
+    isChoiceCheck.checked = scene.isChoice || false;
+    currentChoices = scene.choices ? scene.choices.map(c => ({...c, id: 'choice_' + (++choiceCounter)})) : [];  // 選択肢IDは新規発行
+    choiceEditor.classList.toggle('hidden', !scene.isChoice);
+    renderChoices();
+    
+    saveBtn.textContent = '＋ 新規シーン追加'; saveBtn.classList.remove('btn-update'); saveBtn.classList.add('btn-save');
+    cancelBtn.classList.add('hidden');
+    document.querySelector('[data-tab="editor"]').click();
+}
+
 // ===== Scene List =====
 function renderScenes() {
     sceneCount.textContent = scenes.length + ' シーン';
@@ -1075,6 +1121,7 @@ function renderScenes() {
             <span class="scene-num">#${i + 1}</span>
             <div class="scene-actions">
                 <button class="scene-btn scene-edit">✎</button>
+                <button class="scene-btn scene-copy" style="background:#3498db" title="コピー">📋</button>
                 <button class="scene-btn" style="background:#6c5ce7" title="PNG出力">📷</button>
                 <button class="scene-btn scene-del">✕</button>
             </div>
@@ -1085,6 +1132,7 @@ function renderScenes() {
         card.ondragleave = () => card.classList.remove('drag-over');
         card.ondrop = e => { e.preventDefault(); card.classList.remove('drag-over'); const from = +e.dataTransfer.getData('idx'); if (from !== i) { const [moved] = scenes.splice(from, 1); scenes.splice(i, 0, moved); renderScenes(); saveWithHistory(); } };
         card.querySelector('.scene-edit').onclick = e => { e.stopPropagation(); loadToEditor(s); };
+        card.querySelector('.scene-copy').onclick = e => { e.stopPropagation(); copySceneToEditor(s); };
         card.querySelector('.scene-btn[title="PNG出力"]').onclick = async e => { 
             e.stopPropagation(); 
             await exportSceneToPng(s, i); 
