@@ -311,6 +311,13 @@
                         <input type="number" id="timerStartSeconds" value="30" min="1" max="999" style="width:80px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
                         <span style="font-size:12px;color:#888">秒</span>
                     </div>
+                    <div style="margin-bottom:8px">
+                        <span style="font-size:12px;color:#888;display:block;margin-bottom:4px">減算モード</span>
+                        <select id="timerModeSelect" style="background:#333;border:none;border-radius:4px;padding:6px 10px;color:#eee;font-size:12px">
+                            <option value="realtime">リアルタイム（常に減る）</option>
+                            <option value="choice">選択式（選択肢でのみ増減）</option>
+                        </select>
+                    </div>
                     <div class="choice-toggle">
                         <input type="checkbox" id="timerShowCheck" checked>
                         <label for="timerShowCheck">カウント表示</label>
@@ -513,7 +520,7 @@ async function saveToIndexedDB() {
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
                 bg: s.bg, textMode: s.textMode, transition: s.transition,
-                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerShow: s.timerShow,
+                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerMode: s.timerMode, timerShow: s.timerShow,
                 timerEnd: s.timerEnd, timerEndId: s.timerEndId,
                 isChoice: s.isChoice, choices: s.choices,
                 isTimed: s.isTimed, timedSeconds: s.timedSeconds, showTimer: s.showTimer,
@@ -567,7 +574,7 @@ async function saveToHistory() {
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
                 bg: s.bg, textMode: s.textMode, transition: s.transition,
-                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerShow: s.timerShow,
+                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerMode: s.timerMode, timerShow: s.timerShow,
                 timerEnd: s.timerEnd, timerEndId: s.timerEndId,
                 isChoice: s.isChoice, choices: s.choices,
                 isTimed: s.isTimed, timedSeconds: s.timedSeconds, showTimer: s.showTimer,
@@ -1075,7 +1082,10 @@ function renderChoices() {
                 <option value="">→ 次へ</option>
                 ${scenes.map(s => `<option value="${s.label || s.id}" ${c.goto === (s.label || String(s.id)) ? 'selected' : ''}>${s.label || '#' + (scenes.indexOf(s) + 1)}</option>`).join('')}
             </select>
-            <input type="number" placeholder="±秒" value="${c.timerDelta || 0}" data-idx="${i}" data-field="timerDelta" style="width:55px;text-align:center" title="タイマー増減（例: +5, -3）&#10;シーン跨ぎタイマーに影響">
+            <div style="display:flex;align-items:center;gap:2px">
+                <span style="font-size:10px;color:#888">±秒</span>
+                <input type="number" value="${c.timerDelta || 0}" data-idx="${i}" data-field="timerDelta" style="width:45px;text-align:center" title="タイマー増減（例: +5, -3）">
+            </div>
             <button class="btn remove-choice-btn" data-idx="${i}">×</button>
         `;
         choiceOptions.appendChild(div);
@@ -1233,6 +1243,7 @@ saveBtn.onclick = () => {
         timerStart: $('timerStartCheck').checked,
         timerStartId: $('timerStartId').value || 'A',
         timerStartSeconds: parseInt($('timerStartSeconds').value) || 30,
+        timerMode: $('timerModeSelect').value || 'realtime',
         timerShow: $('timerShowCheck').checked,
         timerEnd: $('timerEndCheck').checked,
         timerEndId: $('timerEndId').value || 'A',
@@ -1270,6 +1281,7 @@ function resetEditor() {
     $('timerStartOptions').classList.add('hidden');
     $('timerStartId').value = 'A';
     $('timerStartSeconds').value = '30';
+    $('timerModeSelect').value = 'realtime';
     $('timerShowCheck').checked = true;
     $('timerEndCheck').checked = false;
     $('timerEndOptions').classList.add('hidden');
@@ -1309,6 +1321,7 @@ function loadToEditor(scene) {
     $('timerStartOptions').classList.toggle('hidden', !scene.timerStart);
     $('timerStartId').value = scene.timerStartId || 'A';
     $('timerStartSeconds').value = scene.timerStartSeconds || 30;
+    $('timerModeSelect').value = scene.timerMode || 'realtime';
     $('timerShowCheck').checked = scene.timerShow !== false;
     $('timerEndCheck').checked = scene.timerEnd || false;
     $('timerEndOptions').classList.toggle('hidden', !scene.timerEnd);
@@ -1913,7 +1926,7 @@ $('saveZip').onclick = async () => {
             scenes: scenes.map(s => ({ 
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, 
                 label: s.label, bg: s.bg, textMode: s.textMode, transition: s.transition,
-                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerShow: s.timerShow,
+                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerMode: s.timerMode, timerShow: s.timerShow,
                 timerEnd: s.timerEnd, timerEndId: s.timerEndId,
                 isChoice: s.isChoice, choices: s.choices,
                 isTimed: s.isTimed, timedSeconds: s.timedSeconds, showTimer: s.showTimer,
