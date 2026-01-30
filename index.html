@@ -1298,9 +1298,13 @@ async function runEditorOverlay(cmd, container) {
     const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
     
     // Find image URL
-    console.log('Looking for overlay:', filename, 'in overlayBlobs:', Object.keys(overlayBlobs));
+    if (typeof log === 'function') log(`Looking for: ${filename} in ${Object.keys(overlayBlobs).join(',')}`);
     const imgUrl = overlayBlobs[filename]?.url;
-    if (!imgUrl) { console.warn('Overlay image not found:', filename); return; }
+    if (!imgUrl) { 
+        if (typeof log === 'function') log(`Overlay not found: ${filename}`);
+        return; 
+    }
+    if (typeof log === 'function') log(`Found overlay: ${filename}`);
     
     const el = document.createElement('div');
     el.className = 'editor-overlay-item';
@@ -1350,12 +1354,13 @@ async function runCmdWithOverlay(cmd, flashEl, shakeEl, overlayContainer, isPrev
     const origCmd = cmd;
     const upperCmd = cmd.toUpperCase().trim();
     
-    console.log('runCmdWithOverlay:', upperCmd, 'container:', overlayContainer);
+    // Debug log for preview
+    if (typeof log === 'function') log(`runCmdWithOverlay: ${upperCmd.substring(0,30)}...`);
     
     // Check for OVERLAY command first (case-sensitive for filename)
     if (upperCmd.startsWith('OVERLAY:')) {
         const overlayCmd = origCmd.trim().slice(8);
-        console.log('Calling runEditorOverlay with:', overlayCmd);
+        if (typeof log === 'function') log(`Calling overlay: ${overlayCmd.substring(0,25)}...`);
         await runEditorOverlay(overlayCmd, overlayContainer);
         return null;
     }
