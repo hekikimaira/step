@@ -143,6 +143,25 @@
         .overlay-item .overlay-name { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); font-size: 7px; padding: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
         .overlay-item .overlay-del { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; background: #e94560; border-radius: 50%; font-size: 10px; line-height: 14px; text-align: center; cursor: pointer; display: none; }
         .overlay-item:hover .overlay-del { display: block; }
+        
+        .cmd-section { margin-bottom: 8px; }
+        .cmd-section-header { display: flex; align-items: center; gap: 6px; padding: 6px 8px; background: #333; border-radius: 4px; cursor: pointer; font-size: 11px; color: #aaa; }
+        .cmd-section-header:hover { background: #3a3a3a; }
+        .cmd-section-header .arrow { transition: transform 0.2s; }
+        .cmd-section-header.open .arrow { transform: rotate(90deg); }
+        .cmd-section-content { display: none; padding: 8px; background: #2a2a2a; border-radius: 0 0 4px 4px; margin-top: -4px; }
+        .cmd-section-header.open + .cmd-section-content { display: block; }
+        .cmd-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; font-size: 10px; }
+        .cmd-row code { flex: 1; background: #333; padding: 4px 6px; border-radius: 3px; color: #4ecdc4; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cmd-row .cmd-copy { width: 22px; height: 22px; background: #444; border: none; border-radius: 3px; color: #888; font-size: 10px; cursor: pointer; flex-shrink: 0; }
+        .cmd-row .cmd-copy:hover { background: #4ecdc4; color: #000; }
+        .cmd-row .cmd-copy:active { transform: scale(0.95); }
+        .cmd-desc { font-size: 9px; color: #666; margin-left: 26px; margin-bottom: 6px; }
+        
+        .editor-overlay-container { position: absolute; inset: 0; z-index: 15; pointer-events: none; overflow: hidden; }
+        .editor-overlay-item { position: absolute; pointer-events: none; }
+        .editor-overlay-item img { max-width: none; max-height: none; }
+        
         .scenes-container { padding: 16px; height: calc(100vh - 49px); overflow-y: auto; }
         .scenes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
         .scene-count { font-size: 14px; color: #888; }
@@ -247,6 +266,7 @@
             <div class="preview-canvas" id="editorCanvas">
                 <div class="preview-bg" id="editorBg"></div>
                 <div class="flash-overlay" id="editorFlash"></div>
+                <div class="editor-overlay-container" id="editorOverlayContainer"></div>
                 <div class="text-display">
                     <div class="char-name" id="editorName"></div>
                     <div class="dialogue" id="editorText">画像を選択してください</div>
@@ -356,42 +376,99 @@
                 <button class="btn btn-primary" id="addOverlayBtn" style="width:100%">＋ 画像追加</button>
                 <input type="file" id="overlayInput" accept="image/*" multiple class="hidden">
             </div>
-            <div class="section">
-                <div class="section-title">コマンド</div>
-                <textarea id="cmdInput" class="cmd-input" placeholder="1SE2,@FLASH"></textarea>
-                <div class="cmd-help">
-                    <code>2SE4</code> SE2×4回 <code>FLASH3</code> <code>SHAKE2</code><br>
-                    <code>SETFLAG:名前</code> フラグON<br>
-                    <code>IFFLAG:名前:SKIP</code> フラグあればスキップ<br>
-                    <code>IFFLAG:名前:GOTO:ラベル</code> フラグあればジャンプ<br>
-                    <code>NOTFLAG:名前:GOTO:ラベル</code> フラグなければジャンプ<br>
-                    <code>FROM:A-1:SKIP</code> A-1から来たらスキップ<br>
-                    <code>FROM:A-1:GOTO:ラベル</code> A-1から来たらジャンプ<br>
-                    <span style="color:#4ecdc4">── カウンター(周回永続) ──</span><br>
-                    <code>SETCOUNTER:名前:10</code> 値セット<br>
-                    <code>ADDCOUNTER:名前:1</code> 加算(負数で減算)<br>
-                    <code>RESETCOUNTER:名前</code> 0にリセット<br>
-                    <code>IFCOUNTER:名前:>=:3:GOTO:ラベル</code><br>
-                    <code>IFCOUNTER:名前:==:0:SKIP</code><br>
-                    <span style="color:#e94560">── オーバーレイ ──</span><br>
-                    <code>OVERLAY:file:方向:パス:速度:easing:loop</code><br>
-                    <span style="font-size:10px;color:#888">
-                    方向: top/bottom/left/right<br>
-                    パス: 開始%&gt;終点% (|で待機ms)<br>
-                    速度: ms数/slow/normal/fast<br>
-                    easing: easeOut/easeIn/linear/bounce<br>
-                    loop: 数字 or "loop"</span><br>
-                    <code style="font-size:9px">OVERLAY:ov001.png:top:-100&gt;50:500ms</code><br>
-                    <span style="font-size:9px;color:#666">↑上から中央へ降りてくる</span><br>
-                    <code style="font-size:9px">OVERLAY:ov001.png:bottom:100&gt;20|1000&gt;100:300ms</code><br>
-                    <span style="font-size:9px;color:#666">↑下から出て1秒待って戻る</span><br>
-                    <code>OVERLAY:CLEAR</code> / <code>OVERLAY:CLEAR:fade</code>
-                </div>
-                <button class="btn btn-primary" id="cmdExec" style="margin-top:8px">実行</button>
-            </div>
             <button class="btn btn-save" id="saveBtn">＋ 新規シーン追加</button>
             <button class="btn btn-cancel hidden" id="cancelBtn">キャンセル</button>
             <button class="btn" id="exportPngBtn" style="background:#6c5ce7;color:#fff;width:100%;margin-top:8px">📷 PNGとして保存</button>
+            
+            <div class="section" style="margin-top:12px">
+                <div class="section-title">コマンド</div>
+                <textarea id="cmdInput" class="cmd-input" placeholder="1SE2,@FLASH"></textarea>
+                <button class="btn btn-primary" id="cmdExec" style="margin-top:8px;margin-bottom:12px">▶ 実行</button>
+                
+                <div class="cmd-section">
+                    <div class="cmd-section-header" onclick="this.classList.toggle('open')">
+                        <span class="arrow">▶</span> 基本（SE・FX）
+                    </div>
+                    <div class="cmd-section-content">
+                        <div class="cmd-row"><code>1SE2</code><button class="cmd-copy" data-cmd="1SE2">📋</button></div>
+                        <div class="cmd-desc">SE1を2回再生</div>
+                        <div class="cmd-row"><code>FLASH</code><button class="cmd-copy" data-cmd="FLASH">📋</button></div>
+                        <div class="cmd-desc">白フラッシュ</div>
+                        <div class="cmd-row"><code>FLASH3</code><button class="cmd-copy" data-cmd="FLASH3">📋</button></div>
+                        <div class="cmd-desc">3回連続フラッシュ</div>
+                        <div class="cmd-row"><code>SHAKE</code><button class="cmd-copy" data-cmd="SHAKE">📋</button></div>
+                        <div class="cmd-desc">画面振動</div>
+                        <div class="cmd-row"><code>BGM</code><button class="cmd-copy" data-cmd="BGM">📋</button></div>
+                        <div class="cmd-desc">BGM再生/停止トグル</div>
+                    </div>
+                </div>
+                
+                <div class="cmd-section">
+                    <div class="cmd-section-header" onclick="this.classList.toggle('open')">
+                        <span class="arrow">▶</span> フラグ分岐
+                    </div>
+                    <div class="cmd-section-content">
+                        <div class="cmd-row"><code>SETFLAG:フラグ名</code><button class="cmd-copy" data-cmd="SETFLAG:フラグ名">📋</button></div>
+                        <div class="cmd-desc">フラグをONにする</div>
+                        <div class="cmd-row"><code>IFFLAG:フラグ名:SKIP</code><button class="cmd-copy" data-cmd="IFFLAG:フラグ名:SKIP">📋</button></div>
+                        <div class="cmd-desc">フラグONならこのシーンをスキップ</div>
+                        <div class="cmd-row"><code>IFFLAG:フラグ名:GOTO:ラベル</code><button class="cmd-copy" data-cmd="IFFLAG:フラグ名:GOTO:ラベル">📋</button></div>
+                        <div class="cmd-desc">フラグONならラベルへジャンプ</div>
+                        <div class="cmd-row"><code>NOTFLAG:フラグ名:GOTO:ラベル</code><button class="cmd-copy" data-cmd="NOTFLAG:フラグ名:GOTO:ラベル">📋</button></div>
+                        <div class="cmd-desc">フラグOFFならラベルへジャンプ</div>
+                        <div class="cmd-row"><code>FROM:A-1:SKIP</code><button class="cmd-copy" data-cmd="FROM:A-1:SKIP">📋</button></div>
+                        <div class="cmd-desc">選択肢A-1から来たらスキップ</div>
+                        <div class="cmd-row"><code>FROM:A-1:GOTO:ラベル</code><button class="cmd-copy" data-cmd="FROM:A-1:GOTO:ラベル">📋</button></div>
+                        <div class="cmd-desc">選択肢A-1から来たらジャンプ</div>
+                    </div>
+                </div>
+                
+                <div class="cmd-section">
+                    <div class="cmd-section-header" onclick="this.classList.toggle('open')">
+                        <span class="arrow">▶</span> カウンター（周回永続）
+                    </div>
+                    <div class="cmd-section-content">
+                        <div class="cmd-row"><code>SETCOUNTER:周回数:0</code><button class="cmd-copy" data-cmd="SETCOUNTER:周回数:0">📋</button></div>
+                        <div class="cmd-desc">カウンターを値にセット</div>
+                        <div class="cmd-row"><code>ADDCOUNTER:周回数:1</code><button class="cmd-copy" data-cmd="ADDCOUNTER:周回数:1">📋</button></div>
+                        <div class="cmd-desc">カウンターに加算（負数で減算）</div>
+                        <div class="cmd-row"><code>RESETCOUNTER:周回数</code><button class="cmd-copy" data-cmd="RESETCOUNTER:周回数">📋</button></div>
+                        <div class="cmd-desc">カウンターを0にリセット</div>
+                        <div class="cmd-row"><code>IFCOUNTER:周回数:>=:3:GOTO:真ED</code><button class="cmd-copy" data-cmd="IFCOUNTER:周回数:>=:3:GOTO:真ED">📋</button></div>
+                        <div class="cmd-desc">条件を満たせばジャンプ（>=, <=, ==, !=, >, <）</div>
+                        <div class="cmd-row"><code>IFCOUNTER:周回数:==:0:SKIP</code><button class="cmd-copy" data-cmd="IFCOUNTER:周回数:==:0:SKIP">📋</button></div>
+                        <div class="cmd-desc">条件を満たせばスキップ</div>
+                    </div>
+                </div>
+                
+                <div class="cmd-section">
+                    <div class="cmd-section-header" onclick="this.classList.toggle('open')">
+                        <span class="arrow">▶</span> オーバーレイ
+                    </div>
+                    <div class="cmd-section-content">
+                        <div style="font-size:9px;color:#888;margin-bottom:8px;line-height:1.5">
+                            透過画像を画面外から出現させる演出<br>
+                            構文: OVERLAY:ファイル:方向:パス:速度:easing:loop
+                        </div>
+                        <div class="cmd-row"><code>OVERLAY:ov001.png:top:-100>50:500ms</code><button class="cmd-copy" data-cmd="OVERLAY:ov001.png:top:-100>50:500ms">📋</button></div>
+                        <div class="cmd-desc">上から降りてきて中央で停止</div>
+                        <div class="cmd-row"><code>OVERLAY:ov001.png:bottom:100>20:300ms</code><button class="cmd-copy" data-cmd="OVERLAY:ov001.png:bottom:100>20:300ms">📋</button></div>
+                        <div class="cmd-desc">下から出てきて20%で停止</div>
+                        <div class="cmd-row"><code>OVERLAY:ov001.png:left:-100>200:400ms</code><button class="cmd-copy" data-cmd="OVERLAY:ov001.png:left:-100>200:400ms">📋</button></div>
+                        <div class="cmd-desc">左から右へ貫通</div>
+                        <div class="cmd-row"><code>OVERLAY:ov001.png:top:-100>50|1000>-100:500ms</code><button class="cmd-copy" data-cmd="OVERLAY:ov001.png:top:-100>50|1000>-100:500ms">📋</button></div>
+                        <div class="cmd-desc">出てきて1秒待って戻る</div>
+                        <div class="cmd-row"><code>OVERLAY:ov001.png:top:-100>50:300ms:bounce</code><button class="cmd-copy" data-cmd="OVERLAY:ov001.png:top:-100>50:300ms:bounce">📋</button></div>
+                        <div class="cmd-desc">バウンド効果で出現</div>
+                        <div class="cmd-row"><code>OVERLAY:ov001.png:top:-100>50>-100:800ms:easeInOut:loop</code><button class="cmd-copy" data-cmd="OVERLAY:ov001.png:top:-100>50>-100:800ms:easeInOut:loop">📋</button></div>
+                        <div class="cmd-desc">無限ループ</div>
+                        <div class="cmd-row"><code>OVERLAY:CLEAR</code><button class="cmd-copy" data-cmd="OVERLAY:CLEAR">📋</button></div>
+                        <div class="cmd-desc">全オーバーレイを消去</div>
+                        <div class="cmd-row"><code>OVERLAY:CLEAR:fade:500ms</code><button class="cmd-copy" data-cmd="OVERLAY:CLEAR:fade:500ms">📋</button></div>
+                        <div class="cmd-desc">フェードアウトで消去</div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -420,6 +497,7 @@
                     <div class="preview-canvas" id="previewCanvas">
                         <div class="preview-bg" id="previewBgEl"></div>
                         <div class="flash-overlay" id="previewFlash"></div>
+                        <div class="editor-overlay-container" id="previewOverlayContainer"></div>
                         <div class="text-display">
                             <div class="char-name" id="previewName"></div>
                             <div class="dialogue" id="previewText"></div>
@@ -1157,7 +1235,131 @@ async function runCmd(cmd, flashEl, shakeEl, isPreview = false) {
     return null;
 }
 
-async function runCmdSequence(str, flashEl, shakeEl, isPreview = false) {
+// Editor Overlay System
+let editorActiveOverlays = {};
+
+function parseEasing(e) {
+    const map = { linear:'linear', easein:'ease-in', easeout:'ease-out', easeinout:'ease-in-out', bounce:'cubic-bezier(0.68,-0.55,0.265,1.55)' };
+    return map[(e||'easeout').toLowerCase()] || 'ease-out';
+}
+function parseSpeed(s) {
+    if (!s) return 500;
+    if (typeof s === 'number') return s;
+    const str = String(s).toLowerCase();
+    if (str === 'slow') return 1000;
+    if (str === 'fast') return 200;
+    if (str === 'normal') return 500;
+    return parseInt(str) || 500;
+}
+
+async function runEditorOverlay(cmd, container) {
+    // OVERLAY:CLEAR
+    if (cmd.toUpperCase().startsWith('CLEAR')) {
+        const parts = cmd.slice(5).split(':').filter(p=>p);
+        if (parts.length === 0) { container.innerHTML = ''; editorActiveOverlays = {}; return; }
+        const isFade = parts.some(p => p.toUpperCase() === 'FADE');
+        const fadeTime = parts.find(p => /^\d+MS$/i.test(p));
+        const filename = parts.find(p => !['FADE'].includes(p.toUpperCase()) && !/^\d+MS$/i.test(p));
+        const targets = filename ? [filename] : Object.keys(editorActiveOverlays);
+        for (const id of targets) {
+            const ov = editorActiveOverlays[id];
+            if (!ov) continue;
+            if (isFade) {
+                ov.element.style.transition = `opacity ${fadeTime ? parseInt(fadeTime) : 300}ms`;
+                ov.element.style.opacity = '0';
+                await sleep(fadeTime ? parseInt(fadeTime) : 300);
+            }
+            ov.element.remove();
+            delete editorActiveOverlays[id];
+        }
+        return;
+    }
+    
+    // OVERLAY:file.png:direction:path:speed:easing:loop
+    const parts = cmd.split(':');
+    const filename = parts[0];
+    const direction = (parts[1] || 'top').toLowerCase();
+    const pathStr = parts[2] || '-100>50';
+    const speedStr = parts[3];
+    const easingStr = parts[4];
+    const loopStr = parts[5];
+    
+    // Parse path
+    const pathParts = pathStr.split('>').map(p => {
+        if (p.includes('|')) {
+            const [pos, delay] = p.split('|');
+            return { pos: parseFloat(pos), delay: parseInt(delay) };
+        }
+        return { pos: parseFloat(p), delay: 0 };
+    });
+    
+    const speeds = (speedStr || '500ms').split(',').map(s => parseSpeed(s));
+    const easings = (easingStr || 'easeOut').split(',').map(e => parseEasing(e));
+    const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
+    
+    // Find image URL
+    const imgUrl = overlayBlobs[filename]?.url;
+    if (!imgUrl) { console.warn('Overlay image not found:', filename); return; }
+    
+    const el = document.createElement('div');
+    el.className = 'editor-overlay-item';
+    el.innerHTML = `<img src="${imgUrl}">`;
+    el.dataset.overlayId = filename;
+    container.appendChild(el);
+    editorActiveOverlays[filename] = { element: el };
+    
+    const setPosition = (percent) => {
+        if (direction === 'top' || direction === 'bottom') {
+            el.style.left = '0'; el.style.right = '0';
+            el.style.top = direction === 'top' ? `${percent}%` : 'auto';
+            el.style.bottom = direction === 'bottom' ? `${-percent}%` : 'auto';
+        } else {
+            el.style.top = '0'; el.style.bottom = '0';
+            el.style.left = direction === 'left' ? `${percent}%` : 'auto';
+            el.style.right = direction === 'right' ? `${-percent}%` : 'auto';
+        }
+    };
+    
+    const animate = async () => {
+        for (let i = 0; i < pathParts.length; i++) {
+            const { pos, delay } = pathParts[i];
+            const speed = speeds[Math.min(i, speeds.length - 1)];
+            const easing = easings[Math.min(i, easings.length - 1)];
+            
+            if (i === 0) {
+                el.style.transition = 'none';
+                setPosition(pos);
+                void el.offsetWidth;
+            } else {
+                el.style.transition = `all ${speed}ms ${easing}`;
+                setPosition(pos);
+                await sleep(speed);
+            }
+            if (delay > 0) await sleep(delay);
+        }
+    };
+    
+    for (let loop = 0; loop < loopCount; loop++) {
+        if (!editorActiveOverlays[filename]) break;
+        await animate();
+    }
+}
+
+async function runCmdWithOverlay(cmd, flashEl, shakeEl, overlayContainer, isPreview = false) {
+    const origCmd = cmd;
+    const upperCmd = cmd.toUpperCase().trim();
+    
+    // Check for OVERLAY command first (case-sensitive for filename)
+    if (upperCmd.startsWith('OVERLAY:')) {
+        const overlayCmd = origCmd.trim().slice(8);
+        await runEditorOverlay(overlayCmd, overlayContainer);
+        return null;
+    }
+    
+    return runCmd(cmd, flashEl, shakeEl, isPreview);
+}
+
+async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayContainer = null) {
     if (!str) return null;
     const lines = str.split('\n').map(l => l.trim()).filter(l => l);
     
@@ -1166,7 +1368,9 @@ async function runCmdSequence(str, flashEl, shakeEl, isPreview = false) {
         for (let i = 0; i < parts.length; i++) {
             const group = [parts[i]];
             while (i + 1 < parts.length && parts[i + 1].startsWith('@')) { group.push(parts[++i]); }
-            const results = await Promise.all(group.map(c => runCmd(c, flashEl, shakeEl, isPreview)));
+            const results = await Promise.all(group.map(c => 
+                overlayContainer ? runCmdWithOverlay(c, flashEl, shakeEl, overlayContainer, isPreview) : runCmd(c, flashEl, shakeEl, isPreview)
+            ));
             for (const r of results) {
                 if (r === 'SKIP') return 'SKIP';
                 if (r && r.goto) return r;
@@ -1176,7 +1380,18 @@ async function runCmdSequence(str, flashEl, shakeEl, isPreview = false) {
     return null;
 }
 
-$('cmdExec').onclick = () => runCmdSequence(cmdInput.value, editorFlash, editorCanvas, false);
+// Copy button handler
+document.addEventListener('click', e => {
+    if (e.target.classList.contains('cmd-copy')) {
+        const cmd = e.target.dataset.cmd;
+        const current = cmdInput.value;
+        cmdInput.value = current ? current + '\n' + cmd : cmd;
+        e.target.textContent = '✓';
+        setTimeout(() => e.target.textContent = '📋', 800);
+    }
+});
+
+$('cmdExec').onclick = () => runCmdSequence(cmdInput.value, editorFlash, editorCanvas, false, $('editorOverlayContainer'));
 
 // Save scene
 saveBtn.onclick = () => {
@@ -1416,7 +1631,7 @@ async function showPreview() {
     
     // Run commands first (may skip or jump)
     try {
-        const result = await runCmdSequence(s.cmd, previewFlash, previewCanvas, true);
+        const result = await runCmdSequence(s.cmd, previewFlash, previewCanvas, true, $('previewOverlayContainer'));
         log(`Cmd result: ${JSON.stringify(result)}`);
         
         if (result === 'SKIP') {
