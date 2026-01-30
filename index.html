@@ -287,7 +287,15 @@
                 <input type="text" id="labelInput" class="label-input" placeholder="例: ルートB開始">
             </div>
             <div class="section">
-                <div class="section-title">タイマー</div>
+                <div class="section-title">タイマー（シーン跨ぎ）</div>
+                <div style="font-size:11px;color:#888;margin-bottom:8px;line-height:1.6;background:#1a1a1a;padding:10px;border-radius:4px;border-left:3px solid #4ecdc4">
+                    <strong style="color:#4ecdc4">使い方:</strong><br>
+                    ① STARTシーンでタイマー開始（例: 30秒）<br>
+                    ② 複数シーンを経由（探索など）<br>
+                    ③ タイマー0になる → ENDシーンへ強制移動<br>
+                    ④ ENDの次でIFFLAGで結末を分岐<br>
+                    <span style="color:#666">※ 選択肢の「±秒」でタイマー増減可</span>
+                </div>
                 <div class="choice-toggle">
                     <input type="checkbox" id="timerStartCheck">
                     <label for="timerStartCheck">タイマー開始（START）</label>
@@ -296,6 +304,7 @@
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
                         <span style="font-size:12px;color:#888">タイマーID</span>
                         <input type="text" id="timerStartId" placeholder="A" style="width:80px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
+                        <span style="font-size:11px;color:#666">（同じIDのEND地点へ飛ぶ）</span>
                     </div>
                     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
                         <span style="font-size:12px;color:#888">秒数</span>
@@ -312,9 +321,14 @@
                     <label for="timerEndCheck">タイマー終了（END）</label>
                 </div>
                 <div id="timerEndOptions" class="hidden" style="background:#2a2a2a;padding:12px;border-radius:4px;margin:8px 0">
-                    <div style="display:flex;gap:8px;align-items:center">
+                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
                         <span style="font-size:12px;color:#888">タイマーID</span>
                         <input type="text" id="timerEndId" placeholder="A" style="width:80px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
+                        <span style="font-size:11px;color:#666">（タイマー0でここへ飛ぶ）</span>
+                    </div>
+                    <div style="font-size:11px;color:#888;background:#1a1a1a;padding:8px;border-radius:4px">
+                        💡 このシーンの次にIFFLAG分岐を置くと、<br>
+                        フラグの有無で結末を変えられます
                     </div>
                 </div>
                 <div id="timerWarning" class="hidden" style="background:#e74c3c;color:#fff;padding:8px;border-radius:4px;margin-top:8px;font-size:12px"></div>
@@ -1061,7 +1075,7 @@ function renderChoices() {
                 <option value="">→ 次へ</option>
                 ${scenes.map(s => `<option value="${s.label || s.id}" ${c.goto === (s.label || String(s.id)) ? 'selected' : ''}>${s.label || '#' + (scenes.indexOf(s) + 1)}</option>`).join('')}
             </select>
-            <input type="number" placeholder="±秒" value="${c.timerDelta || 0}" data-idx="${i}" data-field="timerDelta" style="width:50px;text-align:center" title="タイマー増減（秒）">
+            <input type="number" placeholder="±秒" value="${c.timerDelta || 0}" data-idx="${i}" data-field="timerDelta" style="width:55px;text-align:center" title="タイマー増減（例: +5, -3）&#10;シーン跨ぎタイマーに影響">
             <button class="btn remove-choice-btn" data-idx="${i}">×</button>
         `;
         choiceOptions.appendChild(div);
