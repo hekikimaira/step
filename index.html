@@ -248,7 +248,7 @@
             </div>
         </div>
         <div class="control-area">
-            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.6.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
+            <div style="font-size:9px;color:#444;text-align:right;margin-bottom:8px;">v0.4.0 <label style="margin-left:8px;"><input type="checkbox" id="debugMode"> Debug</label></div>
             <div class="section">
                 <div class="section-title">プロジェクト</div>
                 <div style="display:flex;gap:8px">
@@ -287,60 +287,6 @@
                 <input type="text" id="labelInput" class="label-input" placeholder="例: ルートB開始">
             </div>
             <div class="section">
-                <div class="section-title">タイマー（シーン跨ぎ）</div>
-                <div style="font-size:11px;color:#888;margin-bottom:8px;line-height:1.6;background:#1a1a1a;padding:10px;border-radius:4px;border-left:3px solid #4ecdc4">
-                    <strong style="color:#4ecdc4">使い方:</strong><br>
-                    ① STARTシーンでタイマー開始（例: 30秒）<br>
-                    ② 複数シーンを経由（探索など）<br>
-                    ③ タイマー0になる → ENDシーンへ強制移動<br>
-                    ④ ENDの次でIFFLAGで結末を分岐<br>
-                    <span style="color:#666">※ 選択肢の「±秒」でタイマー増減可</span>
-                </div>
-                <div class="choice-toggle">
-                    <input type="checkbox" id="timerStartCheck">
-                    <label for="timerStartCheck">タイマー開始（START）</label>
-                </div>
-                <div id="timerStartOptions" class="hidden" style="background:#2a2a2a;padding:12px;border-radius:4px;margin:8px 0">
-                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                        <span style="font-size:12px;color:#888">タイマーID</span>
-                        <input type="text" id="timerStartId" placeholder="A" style="width:80px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
-                        <span style="font-size:11px;color:#666">（同じIDのEND地点へ飛ぶ）</span>
-                    </div>
-                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                        <span style="font-size:12px;color:#888">秒数</span>
-                        <input type="number" id="timerStartSeconds" value="30" min="1" max="999" style="width:80px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
-                        <span style="font-size:12px;color:#888">秒</span>
-                    </div>
-                    <div style="margin-bottom:8px">
-                        <span style="font-size:12px;color:#888;display:block;margin-bottom:4px">減算モード</span>
-                        <select id="timerModeSelect" style="background:#333;border:none;border-radius:4px;padding:6px 10px;color:#eee;font-size:12px">
-                            <option value="realtime">リアルタイム（常に減る）</option>
-                            <option value="choice">選択式（選択肢でのみ増減）</option>
-                        </select>
-                    </div>
-                    <div class="choice-toggle">
-                        <input type="checkbox" id="timerShowCheck" checked>
-                        <label for="timerShowCheck">カウント表示</label>
-                    </div>
-                </div>
-                <div class="choice-toggle" style="margin-top:8px">
-                    <input type="checkbox" id="timerEndCheck">
-                    <label for="timerEndCheck">タイマー終了（END）</label>
-                </div>
-                <div id="timerEndOptions" class="hidden" style="background:#2a2a2a;padding:12px;border-radius:4px;margin:8px 0">
-                    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                        <span style="font-size:12px;color:#888">タイマーID</span>
-                        <input type="text" id="timerEndId" placeholder="A" style="width:80px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
-                        <span style="font-size:11px;color:#666">（タイマー0でここへ飛ぶ）</span>
-                    </div>
-                    <div style="font-size:11px;color:#888;background:#1a1a1a;padding:8px;border-radius:4px">
-                        💡 このシーンの次にIFFLAG分岐を置くと、<br>
-                        フラグの有無で結末を変えられます
-                    </div>
-                </div>
-                <div id="timerWarning" class="hidden" style="background:#e74c3c;color:#fff;padding:8px;border-radius:4px;margin-top:8px;font-size:12px"></div>
-            </div>
-            <div class="section">
                 <div class="section-title">テキスト</div>
                 <input type="text" id="nameInput" placeholder="キャラクター名">
                 <textarea id="textInput" placeholder="セリフ"></textarea>
@@ -352,31 +298,29 @@
                     <label for="isChoiceCheck">このシーンは選択肢</label>
                 </div>
                 <div id="choiceEditor" class="hidden">
-                    <div class="choice-toggle" style="margin:8px 0">
-                        <input type="checkbox" id="isTimedCheck">
-                        <label for="isTimedCheck">時間式選択肢</label>
-                    </div>
-                    <div id="timedOptions" class="hidden" style="background:#2a2a2a;padding:12px;border-radius:4px;margin-bottom:12px">
-                        <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-                            <span style="font-size:12px;color:#888">制限時間</span>
-                            <input type="number" id="timedSeconds" value="10" min="1" max="99" style="width:60px;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;text-align:center">
-                            <span style="font-size:12px;color:#888">秒</span>
-                        </div>
-                        <div class="choice-toggle" style="margin:4px 0">
-                            <input type="checkbox" id="showTimerCheck" checked>
-                            <label for="showTimerCheck">カウント表示</label>
-                        </div>
-                        <div class="choice-toggle" style="margin:4px 0">
-                            <input type="checkbox" id="forceProgressCheck" checked>
-                            <label for="forceProgressCheck">時間切れで強制進行</label>
-                        </div>
-                        <div style="margin-top:8px">
-                            <span style="font-size:12px;color:#888">時間切れ時のジャンプ先</span>
-                            <input type="text" id="timeoutGoto" placeholder="ラベル（空欄で次のシーン）" style="width:100%;margin-top:4px">
-                        </div>
-                    </div>
                     <div class="choice-options" id="choiceOptions"></div>
                     <button class="btn add-choice-btn" id="addChoiceBtn">＋ 選択肢を追加</button>
+                    <div style="margin-top:12px;padding-top:12px;border-top:1px solid #333">
+                        <div class="choice-toggle">
+                            <input type="checkbox" id="isTimedCheck">
+                            <label for="isTimedCheck" style="color:#e94560">⏱ 時間制限あり</label>
+                        </div>
+                        <div id="timedOptions" class="hidden" style="margin-top:8px">
+                            <div style="display:flex;gap:8px;margin-bottom:8px">
+                                <input type="number" id="timedSeconds" placeholder="秒数" min="1" max="300" value="10" style="width:70px">
+                                <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#aaa"><input type="checkbox" id="showTimerCheck" checked> タイマー表示</label>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-bottom:8px">
+                                <label style="display:flex;align-items:center;gap:4px;font-size:12px;color:#aaa"><input type="checkbox" id="forceProgressCheck" checked> 時間切れで自動進行</label>
+                            </div>
+                            <div style="display:flex;gap:8px;align-items:center">
+                                <span style="font-size:11px;color:#888">時間切れ時:</span>
+                                <select id="timeoutGoto" style="flex:1;background:#333;border:none;border-radius:4px;padding:6px;color:#eee;font-size:11px">
+                                    <option value="">→ 次へ</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
             <div class="section">
@@ -410,7 +354,23 @@
                     <code>IFFLAG:名前:GOTO:ラベル</code> フラグあればジャンプ<br>
                     <code>NOTFLAG:名前:GOTO:ラベル</code> フラグなければジャンプ<br>
                     <code>FROM:A-1:SKIP</code> A-1から来たらスキップ<br>
-                    <code>FROM:A-1:GOTO:ラベル</code> A-1から来たらジャンプ
+                    <code>FROM:A-1:GOTO:ラベル</code> A-1から来たらジャンプ<br>
+                    <span style="color:#4ecdc4">── カウンター(周回永続) ──</span><br>
+                    <code>SETCOUNTER:名前:10</code> 値セット<br>
+                    <code>ADDCOUNTER:名前:1</code> 加算(負数で減算)<br>
+                    <code>RESETCOUNTER:名前</code> 0にリセット<br>
+                    <code>IFCOUNTER:名前:>=:3:GOTO:ラベル</code><br>
+                    <code>IFCOUNTER:名前:==:0:SKIP</code><br>
+                    <span style="color:#e94560">── オーバーレイ(ホラー演出) ──</span><br>
+                    <code>OVERLAY:file.png:方向:パス:速度:イージング:ループ</code><br>
+                    <span style="font-size:10px;color:#888">方向: top/bottom/left/right<br>
+                    パス: -100>50 (出現位置→終点)<br>
+                    -100>50|1000>-100 (|で待機ms)<br>
+                    速度: 500ms/slow/fast<br>
+                    イージング: easeOut/easeIn/linear/bounce<br>
+                    ループ: loop/回数</span><br>
+                    <code>OVERLAY:CLEAR</code> 全消去<br>
+                    <code>OVERLAY:CLEAR:fade:300ms</code>
                 </div>
                 <button class="btn btn-primary" id="cmdExec" style="margin-top:8px">実行</button>
             </div>
@@ -519,16 +479,10 @@ async function saveToIndexedDB() {
             id: 'main',
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
-                bg: s.bg, textMode: s.textMode, transition: s.transition,
-                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerMode: s.timerMode, timerShow: s.timerShow,
-                timerEnd: s.timerEnd, timerEndId: s.timerEndId,
-                isChoice: s.isChoice, choices: s.choices,
-                isTimed: s.isTimed, timedSeconds: s.timedSeconds, showTimer: s.showTimer,
-                forceProgress: s.forceProgress, timeoutGoto: s.timeoutGoto
+                bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
             })),
             imageCounter,
-            choiceCounter,
-            chapters
+            choiceCounter
         };
         projectStore.put(projectData);
         await new Promise((res, rej) => { tx1.oncomplete = res; tx1.onerror = () => rej(tx1.error); });
@@ -573,17 +527,11 @@ async function saveToHistory() {
             timestamp: Date.now(),
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
-                bg: s.bg, textMode: s.textMode, transition: s.transition,
-                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerMode: s.timerMode, timerShow: s.timerShow,
-                timerEnd: s.timerEnd, timerEndId: s.timerEndId,
-                isChoice: s.isChoice, choices: s.choices,
-                isTimed: s.isTimed, timedSeconds: s.timedSeconds, showTimer: s.showTimer,
-                forceProgress: s.forceProgress, timeoutGoto: s.timeoutGoto
+                bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
             })),
             images: historyImages,
             imageCounter,
-            choiceCounter,
-            chapters
+            choiceCounter
         };
         
         const tx = db.transaction('history', 'readwrite');
@@ -647,7 +595,6 @@ async function restoreFromHistory(historyId) {
         // Restore state
         imageCounter = entry.imageCounter || 0;
         choiceCounter = entry.choiceCounter || 0;
-        chapters = entry.chapters || [];
         
         // Restore images
         imageBlobs = {};
@@ -687,7 +634,6 @@ async function loadFromIndexedDB() {
         
         imageCounter = projectData.imageCounter || 0;
         choiceCounter = projectData.choiceCounter || 0;
-        chapters = projectData.chapters || [];
         
         // Load images
         const imgStore = tx.objectStore('images');
@@ -996,69 +942,19 @@ isChoiceCheck.onchange = () => {
     }
 };
 
-// Timer START/END toggle
-$('timerStartCheck').onchange = () => {
-    $('timerStartOptions').classList.toggle('hidden', !$('timerStartCheck').checked);
-    if ($('timerStartCheck').checked) {
-        $('timerEndCheck').checked = false;
-        $('timerEndOptions').classList.add('hidden');
-    }
-    checkTimerPairs();
-};
-$('timerEndCheck').onchange = () => {
-    $('timerEndOptions').classList.toggle('hidden', !$('timerEndCheck').checked);
-    if ($('timerEndCheck').checked) {
-        $('timerStartCheck').checked = false;
-        $('timerStartOptions').classList.add('hidden');
-    }
-    checkTimerPairs();
-};
-
-// タイマーSTART/ENDペアのチェック
-function checkTimerPairs() {
-    const starts = {};
-    const ends = {};
-    
-    scenes.forEach((s, i) => {
-        if (s.timerStart) {
-            starts[s.timerStartId] = starts[s.timerStartId] || [];
-            starts[s.timerStartId].push(i + 1);
-        }
-        if (s.timerEnd) {
-            ends[s.timerEndId] = ends[s.timerEndId] || [];
-            ends[s.timerEndId].push(i + 1);
-        }
-    });
-    
-    const warnings = [];
-    
-    // STARTのみでENDがないもの
-    for (const id of Object.keys(starts)) {
-        if (!ends[id]) {
-            warnings.push(`タイマー${id}: STARTのみ（#${starts[id].join(',')}）ENDがありません`);
-        }
-    }
-    
-    // ENDのみでSTARTがないもの
-    for (const id of Object.keys(ends)) {
-        if (!starts[id]) {
-            warnings.push(`タイマー${id}: ENDのみ（#${ends[id].join(',')}）STARTがありません`);
-        }
-    }
-    
-    const warningEl = $('timerWarning');
-    if (warnings.length > 0) {
-        warningEl.textContent = warnings.join('\n');
-        warningEl.classList.remove('hidden');
-    } else {
-        warningEl.classList.add('hidden');
-    }
-}
-
 // Timed choice toggle
 $('isTimedCheck').onchange = () => {
     $('timedOptions').classList.toggle('hidden', !$('isTimedCheck').checked);
+    updateTimeoutGotoOptions();
 };
+
+function updateTimeoutGotoOptions() {
+    const select = $('timeoutGoto');
+    const current = select.value;
+    select.innerHTML = '<option value="">→ 次へ</option>' + 
+        scenes.map(s => `<option value="${s.label || s.id}">${s.label || '#' + (scenes.indexOf(s) + 1)}</option>`).join('');
+    select.value = current;
+}
 
 // Add choice
 $('addChoiceBtn').onclick = addChoice;
@@ -1072,20 +968,18 @@ function addChoice() {
 
 function renderChoices() {
     choiceOptions.innerHTML = '';
+    const isTimed = $('isTimedCheck').checked;
     currentChoices.forEach((c, i) => {
         const div = document.createElement('div');
         div.className = 'choice-option';
         div.innerHTML = `
             <span class="choice-option-id">${c.id}</span>
-            <input type="text" placeholder="選択肢テキスト" value="${c.text}" data-idx="${i}" data-field="text" style="flex:2">
-            <select data-idx="${i}" data-field="goto" style="flex:1">
+            <input type="text" placeholder="選択肢テキスト" value="${c.text}" data-idx="${i}" data-field="text">
+            <select data-idx="${i}" data-field="goto">
                 <option value="">→ 次へ</option>
                 ${scenes.map(s => `<option value="${s.label || s.id}" ${c.goto === (s.label || String(s.id)) ? 'selected' : ''}>${s.label || '#' + (scenes.indexOf(s) + 1)}</option>`).join('')}
             </select>
-            <div style="display:flex;align-items:center;gap:2px">
-                <span style="font-size:10px;color:#888">±秒</span>
-                <input type="number" value="${c.timerDelta || 0}" data-idx="${i}" data-field="timerDelta" style="width:45px;text-align:center" title="タイマー増減（例: +5, -3）">
-            </div>
+            ${isTimed ? `<input type="number" placeholder="±秒" value="${c.timerDelta || 0}" data-idx="${i}" data-field="timerDelta" style="width:50px;font-size:11px" title="タイマー増減(正で増加)">` : ''}
             <button class="btn remove-choice-btn" data-idx="${i}">×</button>
         `;
         choiceOptions.appendChild(div);
@@ -1095,11 +989,7 @@ function renderChoices() {
         el.onchange = el.oninput = () => {
             const idx = +el.dataset.idx;
             const field = el.dataset.field;
-            if (field === 'timerDelta') {
-                currentChoices[idx][field] = parseInt(el.value) || 0;
-            } else {
-                currentChoices[idx][field] = el.value;
-            }
+            currentChoices[idx][field] = field === 'timerDelta' ? +el.value : el.value;
         };
     });
     
@@ -1109,6 +999,8 @@ function renderChoices() {
             renderChoices();
         };
     });
+    
+    updateTimeoutGotoOptions();
 }
 
 // Audio
@@ -1239,19 +1131,11 @@ saveBtn.onclick = () => {
         bgUrl: currentBgUrl,
         textMode: currentTextMode,
         transition: $('transitionSelect').value,
-        // タイマーSTART/END
-        timerStart: $('timerStartCheck').checked,
-        timerStartId: $('timerStartId').value || 'A',
-        timerStartSeconds: parseInt($('timerStartSeconds').value) || 30,
-        timerMode: $('timerModeSelect').value || 'realtime',
-        timerShow: $('timerShowCheck').checked,
-        timerEnd: $('timerEndCheck').checked,
-        timerEndId: $('timerEndId').value || 'A',
-        // 選択肢
         isChoice: isChoiceCheck.checked,
         choices: isChoiceCheck.checked ? [...currentChoices] : [],
-        isTimed: isChoiceCheck.checked && $('isTimedCheck').checked,
-        timedSeconds: parseInt($('timedSeconds').value) || 10,
+        // Timed choice fields
+        isTimed: $('isTimedCheck').checked,
+        timedSeconds: +$('timedSeconds').value || 10,
         showTimer: $('showTimerCheck').checked,
         forceProgress: $('forceProgressCheck').checked,
         timeoutGoto: $('timeoutGoto').value
@@ -1264,7 +1148,6 @@ saveBtn.onclick = () => {
         scenes.push(scene);
     }
     renderScenes();
-    checkTimerPairs();
     saveWithHistory();
 };
 
@@ -1276,17 +1159,6 @@ function resetEditor() {
     currentBgFile = null; currentBgUrl = null;
     editorName.textContent = ''; editorText.textContent = ''; editorBg.innerHTML = '';
     imgBtn.textContent = '画像を選択'; imgBtn.classList.remove('loaded');
-    // Reset timer START/END
-    $('timerStartCheck').checked = false;
-    $('timerStartOptions').classList.add('hidden');
-    $('timerStartId').value = 'A';
-    $('timerStartSeconds').value = '30';
-    $('timerModeSelect').value = 'realtime';
-    $('timerShowCheck').checked = true;
-    $('timerEndCheck').checked = false;
-    $('timerEndOptions').classList.add('hidden');
-    $('timerEndId').value = 'A';
-    // Reset choice
     isChoiceCheck.checked = false;
     choiceEditor.classList.add('hidden');
     currentChoices = [];
@@ -1294,7 +1166,7 @@ function resetEditor() {
     // Reset timed choice options
     $('isTimedCheck').checked = false;
     $('timedOptions').classList.add('hidden');
-    $('timedSeconds').value = '10';
+    $('timedSeconds').value = 10;
     $('showTimerCheck').checked = true;
     $('forceProgressCheck').checked = true;
     $('timeoutGoto').value = '';
@@ -1316,27 +1188,18 @@ function loadToEditor(scene) {
     setTextMode(scene.textMode || 'adv');
     $('transitionSelect').value = scene.transition || 'none';
     
-    // Load timer START/END settings
-    $('timerStartCheck').checked = scene.timerStart || false;
-    $('timerStartOptions').classList.toggle('hidden', !scene.timerStart);
-    $('timerStartId').value = scene.timerStartId || 'A';
-    $('timerStartSeconds').value = scene.timerStartSeconds || 30;
-    $('timerModeSelect').value = scene.timerMode || 'realtime';
-    $('timerShowCheck').checked = scene.timerShow !== false;
-    $('timerEndCheck').checked = scene.timerEnd || false;
-    $('timerEndOptions').classList.toggle('hidden', !scene.timerEnd);
-    $('timerEndId').value = scene.timerEndId || 'A';
-    
     isChoiceCheck.checked = scene.isChoice || false;
     currentChoices = scene.choices ? [...scene.choices] : [];
     choiceEditor.classList.toggle('hidden', !scene.isChoice);
-    // Load timed choice settings
+    
+    // Load timed choice options
     $('isTimedCheck').checked = scene.isTimed || false;
     $('timedOptions').classList.toggle('hidden', !scene.isTimed);
     $('timedSeconds').value = scene.timedSeconds || 10;
     $('showTimerCheck').checked = scene.showTimer !== false;
     $('forceProgressCheck').checked = scene.forceProgress !== false;
     $('timeoutGoto').value = scene.timeoutGoto || '';
+    
     renderChoices();
     
     saveBtn.textContent = '✓ シーンを更新'; saveBtn.classList.add('btn-update'); saveBtn.classList.remove('btn-save');
@@ -1361,13 +1224,15 @@ function copySceneToEditor(scene) {
     isChoiceCheck.checked = scene.isChoice || false;
     currentChoices = scene.choices ? scene.choices.map(c => ({...c, id: 'choice_' + (++choiceCounter)})) : [];  // 選択肢IDは新規発行
     choiceEditor.classList.toggle('hidden', !scene.isChoice);
-    // Copy timed choice settings
+    
+    // Load timed choice options
     $('isTimedCheck').checked = scene.isTimed || false;
     $('timedOptions').classList.toggle('hidden', !scene.isTimed);
     $('timedSeconds').value = scene.timedSeconds || 10;
     $('showTimerCheck').checked = scene.showTimer !== false;
     $('forceProgressCheck').checked = scene.forceProgress !== false;
-    $('timeoutGoto').value = '';  // ジャンプ先はコピーしない
+    $('timeoutGoto').value = scene.timeoutGoto || '';
+    
     renderChoices();
     
     saveBtn.textContent = '＋ 新規シーン追加'; saveBtn.classList.remove('btn-update'); saveBtn.classList.add('btn-save');
@@ -1926,11 +1791,7 @@ $('saveZip').onclick = async () => {
             scenes: scenes.map(s => ({ 
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, 
                 label: s.label, bg: s.bg, textMode: s.textMode, transition: s.transition,
-                timerStart: s.timerStart, timerStartId: s.timerStartId, timerStartSeconds: s.timerStartSeconds, timerMode: s.timerMode, timerShow: s.timerShow,
-                timerEnd: s.timerEnd, timerEndId: s.timerEndId,
-                isChoice: s.isChoice, choices: s.choices,
-                isTimed: s.isTimed, timedSeconds: s.timedSeconds, showTimer: s.showTimer,
-                forceProgress: s.forceProgress, timeoutGoto: s.timeoutGoto
+                isChoice: s.isChoice, choices: s.choices 
             })),
             chapters: chapters
         };
