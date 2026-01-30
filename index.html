@@ -1298,6 +1298,7 @@ async function runEditorOverlay(cmd, container) {
     const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
     
     // Find image URL
+    console.log('Looking for overlay:', filename, 'in overlayBlobs:', Object.keys(overlayBlobs));
     const imgUrl = overlayBlobs[filename]?.url;
     if (!imgUrl) { console.warn('Overlay image not found:', filename); return; }
     
