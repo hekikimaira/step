@@ -1298,13 +1298,21 @@ async function runEditorOverlay(cmd, container) {
     const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
     
     // Find image URL
-    if (typeof log === 'function') log(`Looking for: ${filename} in ${Object.keys(overlayBlobs).join(',')}`);
+    const debugLog = $('debugLog');
+    const isDebug = $('debugMode')?.checked;
+    if (isDebug && debugLog) {
+        debugLog.innerHTML += `Looking for: ${filename} in [${Object.keys(overlayBlobs).join(',')}]<br>`;
+    }
     const imgUrl = overlayBlobs[filename]?.url;
     if (!imgUrl) { 
-        if (typeof log === 'function') log(`Overlay not found: ${filename}`);
+        if (isDebug && debugLog) {
+            debugLog.innerHTML += `Overlay NOT FOUND: ${filename}<br>`;
+        }
         return; 
     }
-    if (typeof log === 'function') log(`Found overlay: ${filename}`);
+    if (isDebug && debugLog) {
+        debugLog.innerHTML += `Found overlay: ${filename}<br>`;
+    }
     
     const el = document.createElement('div');
     el.className = 'editor-overlay-item';
@@ -1354,13 +1362,19 @@ async function runCmdWithOverlay(cmd, flashEl, shakeEl, overlayContainer, isPrev
     const origCmd = cmd;
     const upperCmd = cmd.toUpperCase().trim();
     
-    // Debug log for preview
-    if (typeof log === 'function') log(`runCmdWithOverlay: ${upperCmd.substring(0,30)}...`);
+    // Debug log
+    const debugLog = $('debugLog');
+    const isDebug = $('debugMode')?.checked;
+    if (isDebug && debugLog) {
+        debugLog.innerHTML += `runCmdWithOverlay: ${upperCmd.substring(0,30)}...<br>`;
+    }
     
     // Check for OVERLAY command first (case-sensitive for filename)
     if (upperCmd.startsWith('OVERLAY:')) {
         const overlayCmd = origCmd.trim().slice(8);
-        if (typeof log === 'function') log(`Calling overlay: ${overlayCmd.substring(0,25)}...`);
+        if (isDebug && debugLog) {
+            debugLog.innerHTML += `Calling overlay: ${overlayCmd.substring(0,25)}...<br>`;
+        }
         await runEditorOverlay(overlayCmd, overlayContainer);
         return null;
     }
@@ -1370,6 +1384,14 @@ async function runCmdWithOverlay(cmd, flashEl, shakeEl, overlayContainer, isPrev
 
 async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayContainer = null) {
     if (!str) return null;
+    
+    // Debug: check if overlay container is passed
+    const debugLog = $('debugLog');
+    const isDebug = $('debugMode')?.checked;
+    if (isDebug && debugLog) {
+        debugLog.innerHTML += `runCmdSequence: container=${overlayContainer ? 'YES' : 'NULL'}<br>`;
+    }
+    
     const lines = str.split('\n').map(l => l.trim()).filter(l => l);
     
     for (const line of lines) {
@@ -1377,6 +1399,11 @@ async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayC
         for (let i = 0; i < parts.length; i++) {
             const group = [parts[i]];
             while (i + 1 < parts.length && parts[i + 1].startsWith('@')) { group.push(parts[++i]); }
+            
+            if (isDebug && debugLog && group[0].toUpperCase().includes('OVERLAY')) {
+                debugLog.innerHTML += `Processing: ${group[0].substring(0,30)}...<br>`;
+            }
+            
             const results = await Promise.all(group.map(c => 
                 overlayContainer ? runCmdWithOverlay(c, flashEl, shakeEl, overlayContainer, isPreview) : runCmd(c, flashEl, shakeEl, isPreview)
             ));
