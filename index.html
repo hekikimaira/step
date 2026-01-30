@@ -1350,9 +1350,12 @@ async function runCmdWithOverlay(cmd, flashEl, shakeEl, overlayContainer, isPrev
     const origCmd = cmd;
     const upperCmd = cmd.toUpperCase().trim();
     
+    console.log('runCmdWithOverlay:', upperCmd, 'container:', overlayContainer);
+    
     // Check for OVERLAY command first (case-sensitive for filename)
     if (upperCmd.startsWith('OVERLAY:')) {
         const overlayCmd = origCmd.trim().slice(8);
+        console.log('Calling runEditorOverlay with:', overlayCmd);
         await runEditorOverlay(overlayCmd, overlayContainer);
         return null;
     }
