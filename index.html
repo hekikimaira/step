@@ -1447,11 +1447,17 @@ function resetEditor() {
     $('timeoutGoto').value = '';
     setTextMode('adv');
     $('transitionSelect').value = 'none';
+    // Clear editor overlays
+    $('editorOverlayContainer').innerHTML = '';
+    editorActiveOverlays = {};
     saveBtn.textContent = '＋ 新規シーン追加'; saveBtn.classList.remove('btn-update'); saveBtn.classList.add('btn-save');
     cancelBtn.classList.add('hidden');
 }
 
 function loadToEditor(scene) {
+    // Clear overlays when loading new scene
+    $('editorOverlayContainer').innerHTML = '';
+    editorActiveOverlays = {};
     editingId = scene.id;
     nameInput.value = scene.name || ''; textInput.value = scene.text || ''; cmdInput.value = scene.cmd || ''; labelInput.value = scene.label || '';
     currentBgFile = scene.bg || null; currentBgUrl = scene.bgUrl || null;
@@ -1613,6 +1619,11 @@ async function showPreview() {
     log(`showPreview called. scenes.length=${scenes.length}, previewIndex=${previewIndex}`);
     
     choiceOverlay.classList.add('hidden');
+    
+    // Clear overlays on scene change
+    const previewOverlay = $('previewOverlayContainer');
+    previewOverlay.innerHTML = '';
+    editorActiveOverlays = {};
     
     if (!scenes.length) {
         log('No scenes');
