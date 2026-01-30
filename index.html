@@ -137,6 +137,12 @@
         .cmd-input { font-family: monospace; font-size: 12px; min-height: 60px; }
         .cmd-help { font-size: 9px; color: #666; margin-top: 4px; line-height: 1.5; }
         .cmd-help code { background: #333; padding: 1px 4px; border-radius: 2px; color: #4ecdc4; }
+        .overlay-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+        .overlay-item { position: relative; width: 48px; height: 48px; background: #333; border-radius: 4px; overflow: hidden; cursor: pointer; }
+        .overlay-item img { width: 100%; height: 100%; object-fit: cover; }
+        .overlay-item .overlay-name { position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.8); font-size: 7px; padding: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+        .overlay-item .overlay-del { position: absolute; top: 2px; right: 2px; width: 14px; height: 14px; background: #e94560; border-radius: 50%; font-size: 10px; line-height: 14px; text-align: center; cursor: pointer; display: none; }
+        .overlay-item:hover .overlay-del { display: block; }
         .scenes-container { padding: 16px; height: calc(100vh - 49px); overflow-y: auto; }
         .scenes-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
         .scene-count { font-size: 14px; color: #888; }
@@ -345,6 +351,12 @@
                 </div>
             </div>
             <div class="section">
+                <div class="section-title">オーバーレイ</div>
+                <div class="overlay-list" id="overlayList"></div>
+                <button class="btn" id="addOverlayBtn" style="width:100%;background:#e94560">＋ 画像追加</button>
+                <input type="file" id="overlayInput" accept="image/*" multiple class="hidden">
+            </div>
+            <div class="section">
                 <div class="section-title">コマンド</div>
                 <textarea id="cmdInput" class="cmd-input" placeholder="1SE2,@FLASH"></textarea>
                 <div class="cmd-help">
@@ -361,16 +373,9 @@
                     <code>RESETCOUNTER:名前</code> 0にリセット<br>
                     <code>IFCOUNTER:名前:>=:3:GOTO:ラベル</code><br>
                     <code>IFCOUNTER:名前:==:0:SKIP</code><br>
-                    <span style="color:#e94560">── オーバーレイ(ホラー演出) ──</span><br>
-                    <code>OVERLAY:file.png:方向:パス:速度:イージング:ループ</code><br>
-                    <span style="font-size:10px;color:#888">方向: top/bottom/left/right<br>
-                    パス: -100>50 (出現位置→終点)<br>
-                    -100>50|1000>-100 (|で待機ms)<br>
-                    速度: 500ms/slow/fast<br>
-                    イージング: easeOut/easeIn/linear/bounce<br>
-                    ループ: loop/回数</span><br>
-                    <code>OVERLAY:CLEAR</code> 全消去<br>
-                    <code>OVERLAY:CLEAR:fade:300ms</code>
+                    <span style="color:#e94560">── オーバーレイ ──</span><br>
+                    <code>OVERLAY:file.png:方向:パス:速度:easing:loop</code><br>
+                    <code>OVERLAY:CLEAR</code> / <code>OVERLAY:CLEAR:fade</code>
                 </div>
                 <button class="btn btn-primary" id="cmdExec" style="margin-top:8px">実行</button>
             </div>
@@ -715,11 +720,13 @@ function saveWithHistory() {
 // ===== State =====
 let scenes = [];
 let imageBlobs = {};
+let overlayBlobs = {}; // {filename: {url, blob}}
 let editingId = null;
 let currentBgFile = null;
 let currentBgUrl = null;
 let previewIndex = 0;
 let imageCounter = 0;
+let overlayCounter = 0;
 let choiceCounter = 0;
 let currentChoices = []; // [{id, text, goto}]
 let currentTextMode = 'adv'; // 'adv' or 'nvl'
@@ -1032,6 +1039,49 @@ $('fxShake').onclick = () => doShake(editorCanvas);
 function doFlash(el) { el.classList.remove('active'); void el.offsetWidth; el.classList.add('active'); }
 function doShake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Overlay
+function renderOverlayList() {
+    const list = $('overlayList');
+    list.innerHTML = '';
+    Object.entries(overlayBlobs).forEach(([filename, data]) => {
+        const item = document.createElement('div');
+        item.className = 'overlay-item';
+        item.innerHTML = `
+            <img src="${data.url}">
+            <span class="overlay-name">${filename}</span>
+            <span class="overlay-del">×</span>
+        `;
+        item.onclick = () => {
+            // ファイル名をコマンドに挿入
+            const cmd = cmdInput.value;
+            const insert = `OVERLAY:${filename}:top:-100>50:500ms:easeOut`;
+            cmdInput.value = cmd ? cmd + '\n' + insert : insert;
+        };
+        item.querySelector('.overlay-del').onclick = e => {
+            e.stopPropagation();
+            if (confirm(`${filename} を削除しますか？`)) {
+                URL.revokeObjectURL(data.url);
+                delete overlayBlobs[filename];
+                renderOverlayList();
+            }
+        };
+        list.appendChild(item);
+    });
+}
+
+$('addOverlayBtn').onclick = () => $('overlayInput').click();
+$('overlayInput').onchange = async e => {
+    for (const file of e.target.files) {
+        overlayCounter++;
+        const ext = file.name.split('.').pop();
+        const filename = `ov${String(overlayCounter).padStart(3, '0')}.${ext}`;
+        const url = URL.createObjectURL(file);
+        overlayBlobs[filename] = { url, blob: file };
+    }
+    renderOverlayList();
+    e.target.value = '';
+};
 
 async function playSE(key, count) {
     if (!audioData[key]) return;
@@ -1570,8 +1620,8 @@ $('dedupeBtn').onclick = async () => {
 
 $('clearAll').onclick = async () => { 
     if (!confirm('全削除しますか？')) return; 
-    scenes = []; imageBlobs = {}; imageHashes = {}; imageCounter = 0; choiceCounter = 0; 
-    renderScenes(); 
+    scenes = []; imageBlobs = {}; imageHashes = {}; overlayBlobs = {}; imageCounter = 0; overlayCounter = 0; choiceCounter = 0; 
+    renderScenes(); renderOverlayList();
     // Clear IndexedDB
     if (db) {
         const tx = db.transaction(['project', 'images'], 'readwrite');
@@ -1691,7 +1741,7 @@ $('zipInput').onchange = async e => {
         await saveToHistory();
         
         const zip = await JSZip.loadAsync(file);
-        scenes = []; imageBlobs = {}; imageHashes = {}; imageCounter = 0; choiceCounter = 0;
+        scenes = []; imageBlobs = {}; imageHashes = {}; overlayBlobs = {}; imageCounter = 0; overlayCounter = 0; choiceCounter = 0;
         
         // Load images
         const imgFolder = zip.folder('images');
@@ -1700,12 +1750,19 @@ $('zipInput').onchange = async e => {
             for (const { p, f } of files) {
                 const blob = await f.async('blob');
                 const url = URL.createObjectURL(blob);
-                // ハッシュを計算して重複チェック用マップに追加
-                const hash = await hashBlob(blob);
-                imageBlobs[p] = { url, blob, hash };
-                imageHashes[hash] = p;
-                const num = parseInt(p.split('.')[0]);
-                if (!isNaN(num) && num > imageCounter) imageCounter = num;
+                // オーバーレイ画像かどうかチェック
+                if (p.startsWith('ov')) {
+                    overlayBlobs[p] = { url, blob };
+                    const num = parseInt(p.slice(2).split('.')[0]);
+                    if (!isNaN(num) && num > overlayCounter) overlayCounter = num;
+                } else {
+                    // ハッシュを計算して重複チェック用マップに追加
+                    const hash = await hashBlob(blob);
+                    imageBlobs[p] = { url, blob, hash };
+                    imageHashes[hash] = p;
+                    const num = parseInt(p.split('.')[0]);
+                    if (!isNaN(num) && num > imageCounter) imageCounter = num;
+                }
             }
         }
         
@@ -1758,7 +1815,7 @@ $('zipInput').onchange = async e => {
                 }
             });
         }
-        renderScenes(); resetEditor(); 
+        renderScenes(); resetEditor(); renderOverlayList();
         await saveToIndexedDB();
         alert('読み込み完了！');
     } catch (err) { console.error(err); alert('読み込みエラー: ' + err.message); }
@@ -1779,6 +1836,11 @@ $('saveZip').onclick = async () => {
                 const blob = imgData.blob || imgData.file;
                 if (blob) imgFolder.file(filename, blob);
             }
+        }
+        
+        // Save overlay images
+        for (const [filename, data] of Object.entries(overlayBlobs)) {
+            if (data.blob) imgFolder.file(filename, data.blob);
         }
         
         // Save audio files
