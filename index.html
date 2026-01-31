@@ -1239,8 +1239,9 @@ $('overlayInput').onchange = async e => {
 };
 
 async function playSE(name, count) {
+    console.log('playSE called:', name, count, 'seAudios:', Object.keys(seAudios));
     const se = seAudios[name];
-    if (!se) return;
+    if (!se) { console.log('SE not found:', name); return; }
     
     // 無限ループ
     if (count === 0) {
@@ -1254,12 +1255,9 @@ async function playSE(name, count) {
         return;
     }
     
-    // 指定回数再生
-    for (let i = 0; i < count; i++) {
-        se.audio.currentTime = 0;
-        await se.audio.play();
-        await new Promise(r => se.audio.onended = r);
-    }
+    // 指定回数再生 - awaitなしで1回だけ再生開始
+    se.audio.currentTime = 0;
+    se.audio.play().catch(e => console.log('SE play error:', e));
 }
 
 function stopSE(name) {
@@ -1276,15 +1274,16 @@ function stopAllSE() {
 }
 
 function playBGM(name) {
+    console.log('playBGM called:', name, 'bgmAudios:', Object.keys(bgmAudios));
     // 現在のBGMを停止
     if (currentBgm && bgmAudios[currentBgm]) {
         bgmAudios[currentBgm].audio.pause();
         bgmAudios[currentBgm].audio.currentTime = 0;
     }
     const bgm = bgmAudios[name];
-    if (!bgm) return;
+    if (!bgm) { console.log('BGM not found:', name); return; }
     bgm.audio.loop = true;
-    bgm.audio.play();
+    bgm.audio.play().catch(e => console.log('BGM play error:', e));
     currentBgm = name;
 }
 
