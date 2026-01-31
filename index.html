@@ -813,6 +813,7 @@ let choiceCounter = 0;
 let currentChoices = []; // [{id, text, goto}]
 let currentTextMode = 'adv'; // 'adv' or 'nvl'
 let chapters = []; // [{sceneIndex, comment}]
+let saveTimer = null; // 自動保存用タイマー
 
 // Game state
 let flags = {};
