@@ -1308,7 +1308,7 @@ async function runCmd(cmd, flashEl, shakeEl, isPreview = false) {
     if (m) {
         const name = origCmd.trim().split(':')[1]; // 元の大文字小文字を保持
         const count = m[2] !== undefined ? +m[2] : 1;
-        await playSE(name.toLowerCase(), count);
+        playSE(name.toLowerCase(), count); // awaitしない - 再生開始だけ
         return null;
     }
     
@@ -1325,7 +1325,7 @@ async function runCmd(cmd, flashEl, shakeEl, isPreview = false) {
     
     // 旧SE構文（後方互換）: 1SE2 = se01を2回
     m = cmd.match(/^([123])SE(\d+)$/);
-    if (m) { await playSE('se0' + m[1], +m[2]); return null; }
+    if (m) { playSE('se0' + m[1], +m[2]); return null; } // awaitしない
     
     // FLASH
     m = cmd.match(/^FLASH(\d*)$/);
