@@ -60,9 +60,6 @@
             .audio-label { width: 32px; font-size: 10px; }
             .audio-file { font-size: 10px; padding: 6px; }
             
-            .fx-row { flex-wrap: wrap; }
-            .fx-btn { padding: 8px; font-size: 11px; }
-            
             .cmd-input { font-size: 11px; min-height: 50px; }
             .cmd-help { font-size: 8px; }
             
@@ -130,10 +127,6 @@
         .audio-file.loaded { color: #4ecdc4; }
         .audio-play { width: 28px; height: 28px; background: #4ecdc4; border: none; border-radius: 4px; color: #000; cursor: pointer; }
         .audio-play:disabled { opacity: 0.3; }
-        .fx-row { display: flex; gap: 8px; }
-        .fx-btn { flex: 1; padding: 10px; border: none; border-radius: 4px; font-weight: 700; cursor: pointer; }
-        .fx-flash { background: #fff; color: #333; }
-        .fx-shake { background: #e94560; color: #fff; }
         .cmd-input { font-family: monospace; font-size: 12px; min-height: 60px; }
         .cmd-help { font-size: 9px; color: #666; margin-top: 4px; line-height: 1.5; }
         .cmd-help code { background: #333; padding: 1px 4px; border-radius: 2px; color: #4ecdc4; }
@@ -350,25 +343,16 @@
                 </div>
             </div>
             <div class="section">
-                <div class="section-title">SE</div>
-                <div class="audio-row"><span class="audio-label">SE1</span><button class="audio-file" id="se1Btn">選択</button><button class="audio-play" id="se1Play" disabled>▶</button></div>
-                <div class="audio-row"><span class="audio-label">SE2</span><button class="audio-file" id="se2Btn">選択</button><button class="audio-play" id="se2Play" disabled>▶</button></div>
-                <div class="audio-row"><span class="audio-label">SE3</span><button class="audio-file" id="se3Btn">選択</button><button class="audio-play" id="se3Play" disabled>▶</button></div>
-                <input type="file" id="se1Input" accept="audio/*" class="hidden">
-                <input type="file" id="se2Input" accept="audio/*" class="hidden">
-                <input type="file" id="se3Input" accept="audio/*" class="hidden">
+                <div class="section-title">SE（効果音）</div>
+                <div id="seList"></div>
+                <button class="btn btn-primary" id="addSeBtn" style="width:100%">＋ SE追加</button>
+                <input type="file" id="seInput" accept="audio/*" class="hidden">
             </div>
             <div class="section">
                 <div class="section-title">BGM</div>
-                <div class="audio-row"><span class="audio-label">BGM</span><button class="audio-file" id="bgmBtn">選択</button><button class="audio-play" id="bgmPlay" disabled>▶</button></div>
+                <div id="bgmList"></div>
+                <button class="btn btn-primary" id="addBgmBtn" style="width:100%">＋ BGM追加</button>
                 <input type="file" id="bgmInput" accept="audio/*" class="hidden">
-            </div>
-            <div class="section">
-                <div class="section-title">FX</div>
-                <div class="fx-row">
-                    <button class="fx-btn fx-flash" id="fxFlash">フラッシュ</button>
-                    <button class="fx-btn fx-shake" id="fxShake">振動</button>
-                </div>
             </div>
             <div class="section">
                 <div class="section-title">オーバーレイ</div>
@@ -387,19 +371,29 @@
                 
                 <div class="cmd-section">
                     <div class="cmd-section-header" onclick="this.classList.toggle('open')">
-                        <span class="arrow">▶</span> 基本（SE・FX）
+                        <span class="arrow">▶</span> SE・BGM・FX
                     </div>
                     <div class="cmd-section-content">
-                        <div class="cmd-row"><code>1SE2</code><button class="cmd-copy" data-cmd="1SE2">📋</button></div>
-                        <div class="cmd-desc">SE1を2回再生</div>
+                        <div class="cmd-row"><code>SE:se01</code><button class="cmd-copy" data-cmd="SE:se01">📋</button></div>
+                        <div class="cmd-desc">SE再生（1回）</div>
+                        <div class="cmd-row"><code>SE:se01:3</code><button class="cmd-copy" data-cmd="SE:se01:3">📋</button></div>
+                        <div class="cmd-desc">SE再生（3回リピート）</div>
+                        <div class="cmd-row"><code>SE:se01:0</code><button class="cmd-copy" data-cmd="SE:se01:0">📋</button></div>
+                        <div class="cmd-desc">SE無限ループ</div>
+                        <div class="cmd-row"><code>SE:STOP:se01</code><button class="cmd-copy" data-cmd="SE:STOP:se01">📋</button></div>
+                        <div class="cmd-desc">特定SEの停止</div>
+                        <div class="cmd-row"><code>SE:STOP</code><button class="cmd-copy" data-cmd="SE:STOP">📋</button></div>
+                        <div class="cmd-desc">全SE停止</div>
+                        <div class="cmd-row"><code>BGM:bgm01</code><button class="cmd-copy" data-cmd="BGM:bgm01">📋</button></div>
+                        <div class="cmd-desc">BGM再生</div>
+                        <div class="cmd-row"><code>BGM:STOP</code><button class="cmd-copy" data-cmd="BGM:STOP">📋</button></div>
+                        <div class="cmd-desc">BGM停止</div>
                         <div class="cmd-row"><code>FLASH</code><button class="cmd-copy" data-cmd="FLASH">📋</button></div>
                         <div class="cmd-desc">白フラッシュ</div>
                         <div class="cmd-row"><code>FLASH3</code><button class="cmd-copy" data-cmd="FLASH3">📋</button></div>
                         <div class="cmd-desc">3回連続フラッシュ</div>
                         <div class="cmd-row"><code>SHAKE</code><button class="cmd-copy" data-cmd="SHAKE">📋</button></div>
                         <div class="cmd-desc">画面振動</div>
-                        <div class="cmd-row"><code>BGM</code><button class="cmd-copy" data-cmd="BGM">📋</button></div>
-                        <div class="cmd-desc">BGM再生/停止トグル</div>
                     </div>
                 </div>
                 
@@ -824,10 +818,10 @@ let chapters = []; // [{sceneIndex, comment}]
 let flags = {};
 let lastChoiceId = null; // 直前に選んだ選択肢ID
 
-const audio = { se1: new Audio(), se2: new Audio(), se3: new Audio(), bgm: new Audio() };
-const audioData = { se1: null, se2: null, se3: null, bgm: null };
-const audioBlobs = { se1: null, se2: null, se3: null, bgm: null }; // Store original files
-audio.bgm.loop = true;
+const seAudios = {}; // {name: {audio, url, blob}}
+const bgmAudios = {}; // {name: {audio, url, blob}}
+let currentBgm = null; // 現在再生中のBGM名
+let loopingSe = {}; // 無限ループ中のSE {name: intervalId}
 
 // ===== DOM =====
 const $ = id => document.getElementById(id);
@@ -1098,31 +1092,100 @@ function renderChoices() {
     updateTimeoutGotoOptions();
 }
 
-// Audio
-['se1','se2','se3','bgm'].forEach(key => {
-    const btn = $(key + 'Btn'), input = $(key + 'Input'), play = $(key + 'Play');
-    btn.onclick = () => input.click();
-    input.onchange = e => {
-        const file = e.target.files[0];
-        if (!file) return;
-        audioData[key] = URL.createObjectURL(file);
-        audioBlobs[key] = file; // Store the file for ZIP export
-        audio[key].src = audioData[key];
-        btn.textContent = file.name;
-        btn.classList.add('loaded');
-        play.disabled = false;
-    };
-    play.onclick = () => {
-        if (key === 'bgm') {
-            if (audio.bgm.paused) { audio.bgm.play(); play.textContent = '⏸'; }
-            else { audio.bgm.pause(); play.textContent = '▶'; }
-        } else { audio[key].currentTime = 0; audio[key].play(); }
-    };
-});
+// Audio - SE
+let seCounter = 0;
+function renderSeList() {
+    const list = $('seList');
+    list.innerHTML = '';
+    Object.entries(seAudios).forEach(([name, data]) => {
+        const row = document.createElement('div');
+        row.className = 'audio-row';
+        row.innerHTML = `
+            <span class="audio-label">${name}</span>
+            <button class="audio-file loaded" style="flex:1">${data.filename || name}</button>
+            <button class="audio-play">▶</button>
+            <button class="audio-play" style="background:#e94560">×</button>
+        `;
+        const btns = row.querySelectorAll('button');
+        btns[0].onclick = () => {
+            const cmd = `SE:${name}`;
+            cmdInput.value = cmdInput.value ? cmdInput.value + '\n' + cmd : cmd;
+        };
+        btns[1].onclick = () => { data.audio.currentTime = 0; data.audio.play(); };
+        btns[2].onclick = () => {
+            if (confirm(`${name} を削除しますか？`)) {
+                URL.revokeObjectURL(data.url);
+                delete seAudios[name];
+                renderSeList();
+            }
+        };
+        list.appendChild(row);
+    });
+}
+$('addSeBtn').onclick = () => $('seInput').click();
+$('seInput').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    seCounter++;
+    const name = `se${String(seCounter).padStart(2,'0')}`;
+    const url = URL.createObjectURL(file);
+    const audio = new Audio(url);
+    seAudios[name] = { audio, url, blob: file, filename: file.name };
+    renderSeList();
+    e.target.value = '';
+};
 
-// FX
-$('fxFlash').onclick = () => doFlash(editorFlash);
-$('fxShake').onclick = () => doShake(editorCanvas);
+// Audio - BGM
+let bgmCounter = 0;
+function renderBgmList() {
+    const list = $('bgmList');
+    list.innerHTML = '';
+    Object.entries(bgmAudios).forEach(([name, data]) => {
+        const row = document.createElement('div');
+        row.className = 'audio-row';
+        row.innerHTML = `
+            <span class="audio-label">${name}</span>
+            <button class="audio-file loaded" style="flex:1">${data.filename || name}</button>
+            <button class="audio-play">▶</button>
+            <button class="audio-play" style="background:#e94560">×</button>
+        `;
+        const btns = row.querySelectorAll('button');
+        btns[0].onclick = () => {
+            const cmd = `BGM:${name}`;
+            cmdInput.value = cmdInput.value ? cmdInput.value + '\n' + cmd : cmd;
+        };
+        btns[1].onclick = () => {
+            // 他のBGMを停止
+            Object.values(bgmAudios).forEach(d => { d.audio.pause(); d.audio.currentTime = 0; });
+            data.audio.loop = true;
+            data.audio.play();
+            currentBgm = name;
+        };
+        btns[2].onclick = () => {
+            if (confirm(`${name} を削除しますか？`)) {
+                data.audio.pause();
+                URL.revokeObjectURL(data.url);
+                delete bgmAudios[name];
+                if (currentBgm === name) currentBgm = null;
+                renderBgmList();
+            }
+        };
+        list.appendChild(row);
+    });
+}
+$('addBgmBtn').onclick = () => $('bgmInput').click();
+$('bgmInput').onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    bgmCounter++;
+    const name = `bgm${String(bgmCounter).padStart(2,'0')}`;
+    const url = URL.createObjectURL(file);
+    const audio = new Audio(url);
+    audio.loop = true;
+    bgmAudios[name] = { audio, url, blob: file, filename: file.name };
+    renderBgmList();
+    e.target.value = '';
+};
 
 function doFlash(el) { el.classList.remove('active'); void el.offsetWidth; el.classList.add('active'); }
 function doShake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
@@ -1171,24 +1234,94 @@ $('overlayInput').onchange = async e => {
     e.target.value = '';
 };
 
-async function playSE(key, count) {
-    if (!audioData[key]) return;
+async function playSE(name, count) {
+    const se = seAudios[name];
+    if (!se) return;
+    
+    // 無限ループ
+    if (count === 0) {
+        const loop = () => {
+            se.audio.currentTime = 0;
+            se.audio.play();
+        };
+        se.audio.onended = loop;
+        loop();
+        loopingSe[name] = true;
+        return;
+    }
+    
+    // 指定回数再生
     for (let i = 0; i < count; i++) {
-        audio[key].currentTime = 0;
-        await audio[key].play();
-        await new Promise(r => audio[key].onended = r);
+        se.audio.currentTime = 0;
+        await se.audio.play();
+        await new Promise(r => se.audio.onended = r);
     }
 }
 
+function stopSE(name) {
+    const se = seAudios[name];
+    if (!se) return;
+    se.audio.pause();
+    se.audio.currentTime = 0;
+    se.audio.onended = null;
+    delete loopingSe[name];
+}
+
+function stopAllSE() {
+    Object.keys(seAudios).forEach(name => stopSE(name));
+}
+
+function playBGM(name) {
+    // 現在のBGMを停止
+    if (currentBgm && bgmAudios[currentBgm]) {
+        bgmAudios[currentBgm].audio.pause();
+        bgmAudios[currentBgm].audio.currentTime = 0;
+    }
+    const bgm = bgmAudios[name];
+    if (!bgm) return;
+    bgm.audio.loop = true;
+    bgm.audio.play();
+    currentBgm = name;
+}
+
+function stopBGM() {
+    if (currentBgm && bgmAudios[currentBgm]) {
+        bgmAudios[currentBgm].audio.pause();
+        bgmAudios[currentBgm].audio.currentTime = 0;
+    }
+    currentBgm = null;
+}
+
 async function runCmd(cmd, flashEl, shakeEl, isPreview = false) {
+    const origCmd = cmd;
     cmd = cmd.toUpperCase().trim();
     if (cmd.startsWith('@')) cmd = cmd.slice(1);
     
     let m;
     
-    // SE
+    // 新SE構文: SE:name または SE:name:count (0=無限ループ)
+    m = cmd.match(/^SE:([^:]+)(?::(\d+))?$/);
+    if (m) {
+        const name = origCmd.trim().split(':')[1]; // 元の大文字小文字を保持
+        const count = m[2] !== undefined ? +m[2] : 1;
+        await playSE(name.toLowerCase(), count);
+        return null;
+    }
+    
+    // SE停止: SE:STOP:name または SE:STOP (全停止)
+    m = cmd.match(/^SE:STOP(?::(.+))?$/);
+    if (m) {
+        if (m[1]) {
+            stopSE(m[1].toLowerCase());
+        } else {
+            stopAllSE();
+        }
+        return null;
+    }
+    
+    // 旧SE構文（後方互換）: 1SE2 = se01を2回
     m = cmd.match(/^([123])SE(\d+)$/);
-    if (m) { await playSE('se' + m[1], +m[2]); return null; }
+    if (m) { await playSE('se0' + m[1], +m[2]); return null; }
     
     // FLASH
     m = cmd.match(/^FLASH(\d*)$/);
@@ -1198,11 +1331,17 @@ async function runCmd(cmd, flashEl, shakeEl, isPreview = false) {
     m = cmd.match(/^SHAKE(\d*)$/);
     if (m) { const n = +m[1] || 1; for (let i = 0; i < n; i++) { doShake(shakeEl); if (i < n-1) await sleep(300); } return null; }
     
-    // BGM
-    if (cmd === 'BGM' && audioData.bgm) {
-        const p = $('bgmPlay');
-        if (audio.bgm.paused) { audio.bgm.play(); p.textContent = '⏸'; }
-        else { audio.bgm.pause(); p.textContent = '▶'; }
+    // 新BGM構文: BGM:name
+    m = cmd.match(/^BGM:([^:]+)$/);
+    if (m) {
+        const name = origCmd.trim().split(':')[1];
+        playBGM(name.toLowerCase());
+        return null;
+    }
+    
+    // BGM停止: BGM:STOP
+    if (cmd === 'BGM:STOP') {
+        stopBGM();
         return null;
     }
     
@@ -1893,8 +2032,14 @@ $('dedupeBtn').onclick = async () => {
 
 $('clearAll').onclick = async () => { 
     if (!confirm('全削除しますか？')) return; 
-    scenes = []; imageBlobs = {}; imageHashes = {}; overlayBlobs = {}; imageCounter = 0; overlayCounter = 0; choiceCounter = 0; 
-    renderScenes(); renderOverlayList();
+    scenes = []; imageBlobs = {}; imageHashes = {}; overlayBlobs = {}; imageCounter = 0; overlayCounter = 0; choiceCounter = 0;
+    // Clear SE/BGM
+    Object.values(seAudios).forEach(d => URL.revokeObjectURL(d.url));
+    Object.values(bgmAudios).forEach(d => { d.audio.pause(); URL.revokeObjectURL(d.url); });
+    Object.keys(seAudios).forEach(k => delete seAudios[k]);
+    Object.keys(bgmAudios).forEach(k => delete bgmAudios[k]);
+    seCounter = 0; bgmCounter = 0; currentBgm = null;
+    renderScenes(); renderOverlayList(); renderSeList(); renderBgmList();
     // Clear IndexedDB
     if (db) {
         const tx = db.transaction(['project', 'images'], 'readwrite');
@@ -2050,22 +2195,19 @@ $('zipInput').onchange = async e => {
             for (const { p, f } of audioFiles) {
                 const blob = await f.async('blob');
                 const url = URL.createObjectURL(blob);
-                const name = p.toLowerCase();
-                if (name.includes('se1')) { 
-                    audioData.se1 = url; audio.se1.src = url; audioBlobs.se1 = blob;
-                    $('se1Btn').textContent = p; $('se1Btn').classList.add('loaded'); $('se1Play').disabled = false;
-                }
-                else if (name.includes('se2')) { 
-                    audioData.se2 = url; audio.se2.src = url; audioBlobs.se2 = blob;
-                    $('se2Btn').textContent = p; $('se2Btn').classList.add('loaded'); $('se2Play').disabled = false;
-                }
-                else if (name.includes('se3')) { 
-                    audioData.se3 = url; audio.se3.src = url; audioBlobs.se3 = blob;
-                    $('se3Btn').textContent = p; $('se3Btn').classList.add('loaded'); $('se3Play').disabled = false;
-                }
-                else if (name.includes('bgm')) { 
-                    audioData.bgm = url; audio.bgm.src = url; audioBlobs.bgm = blob;
-                    $('bgmBtn').textContent = p; $('bgmBtn').classList.add('loaded'); $('bgmPlay').disabled = false;
+                const name = p.split('.')[0].toLowerCase(); // ファイル名から拡張子を除去
+                
+                if (name.startsWith('se')) {
+                    const audio = new Audio(url);
+                    seAudios[name] = { audio, url, blob, filename: p };
+                    const num = parseInt(name.slice(2));
+                    if (!isNaN(num) && num > seCounter) seCounter = num;
+                } else if (name.startsWith('bgm')) {
+                    const audio = new Audio(url);
+                    audio.loop = true;
+                    bgmAudios[name] = { audio, url, blob, filename: p };
+                    const num = parseInt(name.slice(3));
+                    if (!isNaN(num) && num > bgmCounter) bgmCounter = num;
                 }
             }
         }
@@ -2091,9 +2233,9 @@ $('zipInput').onchange = async e => {
                 }
             });
         }
-        renderScenes(); resetEditor(); renderOverlayList();
+        renderScenes(); resetEditor(); renderOverlayList(); renderSeList(); renderBgmList();
         await saveToIndexedDB();
-        alert(`読み込み完了！\nOverlays: ${Object.keys(overlayBlobs).join(', ') || '(なし)'}`);
+        alert(`読み込み完了！\nSE: ${Object.keys(seAudios).join(', ') || '(なし)'}\nBGM: ${Object.keys(bgmAudios).join(', ') || '(なし)'}\nOverlays: ${Object.keys(overlayBlobs).join(', ') || '(なし)'}`);
     } catch (err) { console.error(err); alert('読み込みエラー: ' + err.message); }
 };
 
@@ -2119,11 +2261,16 @@ $('saveZip').onclick = async () => {
             if (data.blob) imgFolder.file(filename, data.blob);
         }
         
-        // Save audio files
-        if (audioBlobs.se1) audioFolder.file('se1.' + getExt(audioBlobs.se1.name), audioBlobs.se1);
-        if (audioBlobs.se2) audioFolder.file('se2.' + getExt(audioBlobs.se2.name), audioBlobs.se2);
-        if (audioBlobs.se3) audioFolder.file('se3.' + getExt(audioBlobs.se3.name), audioBlobs.se3);
-        if (audioBlobs.bgm) audioFolder.file('bgm.' + getExt(audioBlobs.bgm.name), audioBlobs.bgm);
+        // Save SE files
+        for (const [name, data] of Object.entries(seAudios)) {
+            const ext = data.filename ? getExt(data.filename) : 'mp3';
+            audioFolder.file(`${name}.${ext}`, data.blob);
+        }
+        // Save BGM files
+        for (const [name, data] of Object.entries(bgmAudios)) {
+            const ext = data.filename ? getExt(data.filename) : 'mp3';
+            audioFolder.file(`${name}.${ext}`, data.blob);
+        }
         
         const data = { 
             scenes: scenes.map(s => ({ 
