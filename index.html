@@ -532,7 +532,7 @@
 <script>
 // ===== IndexedDB Auto Save =====
 const DB_NAME = 'vn-editor-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3; // バージョンアップ
 const MAX_HISTORY = 5;
 let db = null;
 
@@ -552,6 +552,9 @@ async function initDB() {
             if (!database.objectStoreNames.contains('history')) {
                 database.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
             }
+            if (!database.objectStoreNames.contains('audio')) {
+                database.createObjectStore('audio', { keyPath: 'id' });
+            }
         };
     });
 }
@@ -569,7 +572,10 @@ async function saveToIndexedDB() {
                 bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
             })),
             imageCounter,
-            choiceCounter
+            choiceCounter,
+            seCounter,
+            bgmCounter,
+            overlayCounter
         };
         projectStore.put(projectData);
         await new Promise((res, rej) => { tx1.oncomplete = res; tx1.onerror = () => rej(tx1.error); });
@@ -590,6 +596,38 @@ async function saveToIndexedDB() {
                 }
             }
         }
+        
+        // Save SE/BGM audio files
+        for (const [name, data] of Object.entries(seAudios)) {
+            if (data.blob) {
+                try {
+                    const tx = db.transaction('audio', 'readwrite');
+                    tx.objectStore('audio').put({ id: name, blob: data.blob, filename: data.filename, type: 'se' });
+                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+                } catch (err) { console.warn(`SE save error for ${name}:`, err); }
+            }
+        }
+        for (const [name, data] of Object.entries(bgmAudios)) {
+            if (data.blob) {
+                try {
+                    const tx = db.transaction('audio', 'readwrite');
+                    tx.objectStore('audio').put({ id: name, blob: data.blob, filename: data.filename, type: 'bgm' });
+                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+                } catch (err) { console.warn(`BGM save error for ${name}:`, err); }
+            }
+        }
+        
+        // Save overlay images
+        for (const [filename, data] of Object.entries(overlayBlobs)) {
+            if (data.blob) {
+                try {
+                    const tx = db.transaction('images', 'readwrite');
+                    tx.objectStore('images').put({ id: filename, blob: data.blob, type: 'overlay' });
+                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+                } catch (err) { console.warn(`Overlay save error for ${filename}:`, err); }
+            }
+        }
+        
         console.log('SaveToIndexedDB complete');
     } catch (e) { 
         console.error('Auto save error:', e);
@@ -706,7 +744,11 @@ async function restoreFromHistory(historyId) {
 async function loadFromIndexedDB() {
     if (!db) await initDB();
     try {
-        const tx = db.transaction(['project', 'images'], 'readonly');
+        // Check if audio store exists
+        const storeNames = db.objectStoreNames;
+        const hasAudioStore = storeNames.contains('audio');
+        
+        const tx = db.transaction(['project', 'images', ...(hasAudioStore ? ['audio'] : [])], 'readonly');
         
         // Load project
         const projectStore = tx.objectStore('project');
@@ -721,6 +763,9 @@ async function loadFromIndexedDB() {
         
         imageCounter = projectData.imageCounter || 0;
         choiceCounter = projectData.choiceCounter || 0;
+        seCounter = projectData.seCounter || 0;
+        bgmCounter = projectData.bgmCounter || 0;
+        overlayCounter = projectData.overlayCounter || 0;
         
         // Load images
         const imgStore = tx.objectStore('images');
@@ -733,12 +778,45 @@ async function loadFromIndexedDB() {
         
         imageBlobs = {};
         imageHashes = {};
+        overlayBlobs = {};
         for (const img of images) {
             const url = URL.createObjectURL(img.blob);
-            // 保存済みハッシュがあれば使用、なければ計算
-            const hash = img.hash || await hashBlob(img.blob);
-            imageBlobs[img.id] = { url, blob: img.blob, hash };
-            imageHashes[hash] = img.id;
+            if (img.type === 'overlay' || img.id.startsWith('ov')) {
+                overlayBlobs[img.id] = { url, blob: img.blob };
+            } else {
+                // 保存済みハッシュがあれば使用、なければ計算
+                const hash = img.hash || await hashBlob(img.blob);
+                imageBlobs[img.id] = { url, blob: img.blob, hash };
+                imageHashes[hash] = img.id;
+            }
+        }
+        
+        // Load audio (SE/BGM)
+        if (hasAudioStore) {
+            const audioStore = tx.objectStore('audio');
+            const audioReq = audioStore.getAll();
+            
+            const audioFiles = await new Promise((res, rej) => {
+                audioReq.onsuccess = () => res(audioReq.result);
+                audioReq.onerror = () => rej(audioReq.error);
+            });
+            
+            // Clear existing
+            Object.keys(seAudios).forEach(k => delete seAudios[k]);
+            Object.keys(bgmAudios).forEach(k => delete bgmAudios[k]);
+            
+            for (const af of audioFiles) {
+                const url = URL.createObjectURL(af.blob);
+                const audio = new Audio(url);
+                if (af.type === 'bgm') {
+                    audio.loop = true;
+                    bgmAudios[af.id] = { audio, url, blob: af.blob, filename: af.filename };
+                } else {
+                    seAudios[af.id] = { audio, url, blob: af.blob, filename: af.filename };
+                }
+            }
+            renderSeList();
+            renderBgmList();
         }
         
         // Restore scenes with bgUrl
@@ -748,6 +826,7 @@ async function loadFromIndexedDB() {
         }));
         
         renderScenes();
+        renderOverlayList();
     } catch (e) { console.warn('Auto load error:', e); }
 }
 
