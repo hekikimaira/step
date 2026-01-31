@@ -1127,10 +1127,12 @@ $('seInput').onchange = e => {
     const file = e.target.files[0];
     if (!file) return;
     seCounter++;
+    const ext = file.name.split('.').pop() || 'mp3';
     const name = `se${String(seCounter).padStart(2,'0')}`;
+    const filename = `${name}.${ext}`;
     const url = URL.createObjectURL(file);
     const audio = new Audio(url);
-    seAudios[name] = { audio, url, blob: file, filename: file.name };
+    seAudios[name] = { audio, url, blob: file, filename };
     renderSeList();
     e.target.value = '';
 };
@@ -1178,11 +1180,13 @@ $('bgmInput').onchange = e => {
     const file = e.target.files[0];
     if (!file) return;
     bgmCounter++;
+    const ext = file.name.split('.').pop() || 'mp3';
     const name = `bgm${String(bgmCounter).padStart(2,'0')}`;
+    const filename = `${name}.${ext}`;
     const url = URL.createObjectURL(file);
     const audio = new Audio(url);
     audio.loop = true;
-    bgmAudios[name] = { audio, url, blob: file, filename: file.name };
+    bgmAudios[name] = { audio, url, blob: file, filename };
     renderBgmList();
     e.target.value = '';
 };
