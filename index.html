@@ -1322,14 +1322,15 @@ async function runEditorOverlay(cmd, container) {
     editorActiveOverlays[filename] = { element: el };
     
     const setPosition = (percent) => {
+        // 画像を中央配置してからtransformで移動
         if (direction === 'top' || direction === 'bottom') {
-            el.style.left = '0'; el.style.right = '0';
-            el.style.top = direction === 'top' ? `${percent}%` : 'auto';
-            el.style.bottom = direction === 'bottom' ? `${-percent}%` : 'auto';
+            el.style.left = '50%';
+            el.style.transform = `translateX(-50%) translateY(${percent}%)`;
+            el.style.top = '0'; el.style.bottom = 'auto';
         } else {
-            el.style.top = '0'; el.style.bottom = '0';
-            el.style.left = direction === 'left' ? `${percent}%` : 'auto';
-            el.style.right = direction === 'right' ? `${-percent}%` : 'auto';
+            el.style.top = '50%';
+            el.style.transform = `translateY(-50%) translateX(${percent}%)`;
+            el.style.left = '0'; el.style.right = 'auto';
         }
     };
     
