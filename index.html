@@ -1484,6 +1484,12 @@ function runEditorKeyframeOverlay(filename, points, duration, easing, loopCount,
     const imgUrl = overlayBlobs[filename]?.url;
     if (!imgUrl) { return; }
     
+    // Remove existing overlay with same filename
+    if (editorActiveOverlays[filename]) {
+        editorActiveOverlays[filename].element.remove();
+        delete editorActiveOverlays[filename];
+    }
+    
     const el = document.createElement('div');
     el.className = 'editor-overlay-item';
     const flipStr = options.flip ? 'transform:scaleX(-1);' : '';
@@ -1643,6 +1649,12 @@ async function runEditorOverlay(cmd, container) {
     if (!imgUrl) {
         if (isDebug && debugLog) debugLog.innerHTML += `Overlay NOT FOUND: ${filename}<br>`;
         return;
+    }
+    
+    // Remove existing overlay with same filename
+    if (editorActiveOverlays[filename]) {
+        editorActiveOverlays[filename].element.remove();
+        delete editorActiveOverlays[filename];
     }
     
     const el = document.createElement('div');
