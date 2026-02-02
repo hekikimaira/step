@@ -1711,7 +1711,6 @@ async function runCmdWithOverlay(cmd, flashEl, shakeEl, overlayContainer, isPrev
 async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayContainer = null) {
     if (!str) return null;
     
-    // Debug: check if overlay container is passed
     const debugLog = $('debugLog');
     const isDebug = $('debugMode')?.checked;
     if (isDebug && debugLog) {
@@ -1721,7 +1720,7 @@ async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayC
     const lines = str.split('\n').map(l => l.trim()).filter(l => l);
     
     for (const line of lines) {
-        const parts = line.split(',').map(s => s.trim()).filter(s => s);
+        const parts = splitCmdLine(line);
         for (let i = 0; i < parts.length; i++) {
             const group = [parts[i]];
             while (i + 1 < parts.length && parts[i + 1].startsWith('@')) { group.push(parts[++i]); }
@@ -1741,6 +1740,8 @@ async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayC
     }
     return null;
 }
+// Split command line by commas, but ignore commas inside parentheses
+function splitCmdLine(line){const parts=[];let cur='';let depth=0;for(let i=0;i<line.length;i++){const c=line[i];if(c==='(')depth++;else if(c===')')depth--;if(c===','&&depth===0){const t=cur.trim();if(t)parts.push(t);cur=''}else{cur+=c}}const t=cur.trim();if(t)parts.push(t);return parts}
 
 // Copy button handler
 document.addEventListener('click', e => {
