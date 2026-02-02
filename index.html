@@ -2003,8 +2003,10 @@ async function showPreview() {
     log(`Scene ${previewIndex}: id=${s.id}, name=${s.name}, bgUrl=${s.bgUrl ? 'yes' : 'no'}, cmd=${s.cmd || 'none'}`);
     
     // Run commands first (may skip or jump)
+    // If currently editing this scene, use live cmdInput value instead of saved cmd
+    const liveCmd = (editingId && s.id === editingId) ? cmdInput.value : s.cmd;
     try {
-        const result = await runCmdSequence(s.cmd, previewFlash, previewCanvas, true, $('previewOverlayContainer'));
+        const result = await runCmdSequence(liveCmd, previewFlash, previewCanvas, true, $('previewOverlayContainer'));
         log(`Cmd result: ${JSON.stringify(result)}`);
         
         if (result === 'SKIP') {
