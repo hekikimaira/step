@@ -711,6 +711,10 @@ async function getHistoryList() {
 
 async function restoreFromHistory(historyId) {
     if (!db) await initDB();
+    // Clear overlay containers on restore
+    $('editorOverlayContainer').innerHTML = '';
+    $('previewOverlayContainer').innerHTML = '';
+    editorActiveOverlays = {};
     try {
         const tx = db.transaction('history', 'readonly');
         const store = tx.objectStore('history');
@@ -749,6 +753,10 @@ async function restoreFromHistory(historyId) {
 
 async function loadFromIndexedDB() {
     if (!db) await initDB();
+    // Clear overlay containers on load
+    $('editorOverlayContainer').innerHTML = '';
+    $('previewOverlayContainer').innerHTML = '';
+    editorActiveOverlays = {};
     try {
         // Check if audio store exists
         const storeNames = db.objectStoreNames;
@@ -2365,6 +2373,10 @@ $('zipInput').onchange = async e => {
         
         const zip = await JSZip.loadAsync(file);
         scenes = []; imageBlobs = {}; imageHashes = {}; overlayBlobs = {}; imageCounter = 0; overlayCounter = 0; choiceCounter = 0;
+        // Clear overlay containers
+        $('editorOverlayContainer').innerHTML = '';
+        $('previewOverlayContainer').innerHTML = '';
+        editorActiveOverlays = {};
         
         // Load images
         const imgFolder = zip.folder('images');
