@@ -1770,7 +1770,7 @@ document.addEventListener('click', e => {
     }
 });
 
-$('cmdExec').onclick = () => runCmdSequence(cmdInput.value, editorFlash, editorCanvas, false, $('editorOverlayContainer'));
+$('cmdExec').onclick = () => { $('editorOverlayContainer').innerHTML = ''; editorActiveOverlays = {}; runCmdSequence(cmdInput.value, editorFlash, editorCanvas, false, $('editorOverlayContainer')); };
 
 // Save scene
 saveBtn.onclick = () => {
