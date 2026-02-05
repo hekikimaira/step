@@ -96,7 +96,7 @@
             .scene-grid { grid-template-columns: repeat(2, 1fr); }
             .btn { padding: 10px 12px; font-size: 12px; }
         }
-        .preview-canvas { position: relative; background: #000; aspect-ratio: 832/1216; height: 100%; max-width: 100%; container-type: inline-size; overflow: hidden; }
+        .preview-canvas { position: relative; background: #000; aspect-ratio: var(--project-ratio, 832/1216); height: 100%; max-width: 100%; container-type: inline-size; overflow: hidden; }
         .preview-bg { position: absolute; inset: 0; }
         .preview-bg img { width: 100%; height: 100%; object-fit: cover; }
         .flash-overlay { position: absolute; inset: 0; background: #fff; opacity: 0; pointer-events: none; z-index: 10; }
@@ -167,7 +167,7 @@
         .scene-card.dragging { opacity: 0.4; }
         .scene-card.drag-over { outline: 2px solid #4ecdc4; }
         .scene-card.is-choice { outline: 2px solid #f39c12; }
-        .scene-thumb { aspect-ratio: 832/1216; background: #333; position: relative; }
+        .scene-thumb { aspect-ratio: var(--project-ratio, 832/1216); background: #333; position: relative; }
         .scene-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .scene-info { padding: 8px; }
         .scene-name { font-size: 12px; font-weight: 700; color: #4ecdc4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -188,7 +188,7 @@
         .nav-btn:hover { background: rgba(255,255,255,0.2); }
         .nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .preview-frame { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .preview-frame .preview-canvas { width: 100%; max-width: calc((100vh - 140px) * 832 / 1216); height: auto; aspect-ratio: 832/1216; }
+        .preview-frame .preview-canvas { width: 100%; max-width: calc((100vh - 140px) * var(--project-width, 832) / var(--project-height, 1216)); height: auto; aspect-ratio: var(--project-ratio, 832/1216); }
         .preview-info { padding: 12px; color: #888; font-size: 14px; }
         .empty-msg { text-align: center; padding: 60px; color: #666; }
         .hidden { display: none !important; }
@@ -536,209 +536,188 @@
 </div>
 
 <script>
-// ===== IndexedDB Auto Save =====
-const DB_NAME = 'vn-editor-db';
-const DB_VERSION = 3; // バージョンアップ
-const MAX_HISTORY = 5;
-let db = null;
+// ===== IndexedDB Manager =====
+const DBManager = {
+    NAME: 'vn-editor-db',
+    VERSION: 3,
+    MAX_HISTORY: 5,
+    db: null,
 
-async function initDB() {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-        request.onerror = () => { console.error('DB error:', request.error); reject(request.error); };
-        request.onsuccess = () => { db = request.result; resolve(db); };
-        request.onupgradeneeded = (e) => {
-            const database = e.target.result;
-            if (!database.objectStoreNames.contains('project')) {
-                database.createObjectStore('project', { keyPath: 'id' });
+    async init() {
+        if (this.db) return this.db;
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.NAME, this.VERSION);
+            request.onerror = () => { console.error('DB error:', request.error); reject(request.error); };
+            request.onsuccess = () => { this.db = request.result; resolve(this.db); };
+            request.onupgradeneeded = (e) => {
+                const database = e.target.result;
+                ['project', 'images', 'history', 'audio'].forEach(name => {
+                    if (!database.objectStoreNames.contains(name)) {
+                        database.createObjectStore(name, name === 'history' 
+                            ? { keyPath: 'id', autoIncrement: true } 
+                            : { keyPath: 'id' });
+                    }
+                });
+            };
+        });
+    },
+
+    async _putItem(storeName, item) {
+        const tx = this.db.transaction(storeName, 'readwrite');
+        tx.objectStore(storeName).put(item);
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+    },
+
+    async _saveBlobs(storeName, entries, buildItem) {
+        for (const [key, data] of Object.entries(entries)) {
+            if (data.blob || data.file) {
+                try {
+                    await this._putItem(storeName, buildItem(key, data));
+                } catch (err) { console.warn(`${storeName} save error for ${key}:`, err); }
             }
-            if (!database.objectStoreNames.contains('images')) {
-                database.createObjectStore('images', { keyPath: 'id' });
-            }
-            if (!database.objectStoreNames.contains('history')) {
-                database.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
-            }
-            if (!database.objectStoreNames.contains('audio')) {
-                database.createObjectStore('audio', { keyPath: 'id' });
+        }
+    },
+
+    async saveProject(projectData, imageBlobs, seAudios, bgmAudios, overlayBlobs) {
+        if (!this.db) await this.init();
+        try {
+            await this._putItem('project', projectData);
+            await this._saveBlobs('images', imageBlobs, (id, d) => ({ id, blob: d.file || d.blob, hash: d.hash || null }));
+            await this._saveBlobs('audio', seAudios, (id, d) => ({ id, blob: d.blob, filename: d.filename, type: 'se' }));
+            await this._saveBlobs('audio', bgmAudios, (id, d) => ({ id, blob: d.blob, filename: d.filename, type: 'bgm' }));
+            await this._saveBlobs('images', overlayBlobs, (id, d) => ({ id, blob: d.blob, type: 'overlay' }));
+            console.log('SaveToIndexedDB complete');
+        } catch (e) { 
+            console.error('Auto save error:', e);
+            alert('保存エラー: ' + e.message);
+        }
+    },
+
+    async loadProject() {
+        if (!this.db) await this.init();
+        const hasAudioStore = this.db.objectStoreNames.contains('audio');
+        const tx = this.db.transaction(['project', 'images', ...(hasAudioStore ? ['audio'] : [])], 'readonly');
+        
+        const projectData = await new Promise((res, rej) => {
+            const req = tx.objectStore('project').get('main');
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+        });
+        
+        const images = await new Promise((res, rej) => {
+            const req = tx.objectStore('images').getAll();
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+        });
+        
+        let audioFiles = [];
+        if (hasAudioStore) {
+            audioFiles = await new Promise((res, rej) => {
+                const req = tx.objectStore('audio').getAll();
+                req.onsuccess = () => res(req.result);
+                req.onerror = () => rej(req.error);
+            });
+        }
+        
+        return { projectData, images, audioFiles };
+    },
+
+    async saveHistory(entry) {
+        if (!this.db) await this.init();
+        const tx = this.db.transaction('history', 'readwrite');
+        const store = tx.objectStore('history');
+        store.add(entry);
+        const getAllReq = store.getAll();
+        getAllReq.onsuccess = () => {
+            const entries = getAllReq.result;
+            if (entries.length > this.MAX_HISTORY) {
+                entries.sort((a, b) => a.timestamp - b.timestamp);
+                entries.slice(0, entries.length - this.MAX_HISTORY).forEach(e => store.delete(e.id));
             }
         };
-    });
-}
+        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+    },
+
+    async getHistoryList() {
+        if (!this.db) await this.init();
+        const tx = this.db.transaction('history', 'readonly');
+        const req = tx.objectStore('history').getAll();
+        return new Promise((res, rej) => {
+            req.onsuccess = () => {
+                const entries = req.result.sort((a, b) => b.timestamp - a.timestamp);
+                res(entries.map(e => ({
+                    id: e.id, timestamp: e.timestamp, sceneCount: e.scenes.length,
+                    date: new Date(e.timestamp).toLocaleString('ja-JP')
+                })));
+            };
+            req.onerror = () => rej(req.error);
+        });
+    },
+
+    async getHistoryEntry(historyId) {
+        if (!this.db) await this.init();
+        const tx = this.db.transaction('history', 'readonly');
+        const req = tx.objectStore('history').get(historyId);
+        return new Promise((res, rej) => {
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+        });
+    }
+};
 
 async function saveToIndexedDB() {
-    if (!db) await initDB();
-    try {
-        // Save project data first
-        const tx1 = db.transaction('project', 'readwrite');
-        const projectStore = tx1.objectStore('project');
-        const projectData = {
-            id: 'main',
-            scenes: scenes.map(s => ({
-                id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
-                bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
-            })),
-            imageCounter,
-            choiceCounter,
-            seCounter,
-            bgmCounter,
-            overlayCounter
-        };
-        projectStore.put(projectData);
-        await new Promise((res, rej) => { tx1.oncomplete = res; tx1.onerror = () => rej(tx1.error); });
-        
-        // Save images separately (one at a time to avoid quota issues)
-        for (const [filename, data] of Object.entries(imageBlobs)) {
-            if (data.file || data.blob) {
-                try {
-                    const tx2 = db.transaction('images', 'readwrite');
-                    tx2.objectStore('images').put({ 
-                        id: filename, 
-                        blob: data.file || data.blob,
-                        hash: data.hash || null
-                    });
-                    await new Promise((res, rej) => { tx2.oncomplete = res; tx2.onerror = () => rej(tx2.error); });
-                } catch (imgErr) {
-                    console.warn(`Image save error for ${filename}:`, imgErr);
-                }
-            }
-        }
-        
-        // Save SE/BGM audio files
-        for (const [name, data] of Object.entries(seAudios)) {
-            if (data.blob) {
-                try {
-                    const tx = db.transaction('audio', 'readwrite');
-                    tx.objectStore('audio').put({ id: name, blob: data.blob, filename: data.filename, type: 'se' });
-                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-                } catch (err) { console.warn(`SE save error for ${name}:`, err); }
-            }
-        }
-        for (const [name, data] of Object.entries(bgmAudios)) {
-            if (data.blob) {
-                try {
-                    const tx = db.transaction('audio', 'readwrite');
-                    tx.objectStore('audio').put({ id: name, blob: data.blob, filename: data.filename, type: 'bgm' });
-                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-                } catch (err) { console.warn(`BGM save error for ${name}:`, err); }
-            }
-        }
-        
-        // Save overlay images
-        for (const [filename, data] of Object.entries(overlayBlobs)) {
-            if (data.blob) {
-                try {
-                    const tx = db.transaction('images', 'readwrite');
-                    tx.objectStore('images').put({ id: filename, blob: data.blob, type: 'overlay' });
-                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
-                } catch (err) { console.warn(`Overlay save error for ${filename}:`, err); }
-            }
-        }
-        
-        console.log('SaveToIndexedDB complete');
-    } catch (e) { 
-        console.error('Auto save error:', e);
-        alert('保存エラー: ' + e.message);
-    }
+    const projectData = {
+        id: 'main',
+        scenes: scenes.map(s => ({
+            id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
+            bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
+        })),
+        imageCounter, choiceCounter, seCounter, bgmCounter, overlayCounter, projectWidth, projectHeight
+    };
+    await DBManager.saveProject(projectData, imageBlobs, seAudios, bgmAudios, overlayBlobs);
 }
 
 async function saveToHistory() {
-    if (!db) await initDB();
     if (scenes.length === 0) return;
-    
     try {
-        // Collect image blobs
         const historyImages = {};
         for (const [filename, data] of Object.entries(imageBlobs)) {
-            if (data.file || data.blob) {
-                historyImages[filename] = data.file || data.blob;
-            }
+            if (data.file || data.blob) historyImages[filename] = data.file || data.blob;
         }
-        
-        const historyEntry = {
+        await DBManager.saveHistory({
             timestamp: Date.now(),
             scenes: scenes.map(s => ({
                 id: s.id, uuid: s.uuid, name: s.name, text: s.text, cmd: s.cmd, label: s.label,
                 bg: s.bg, textMode: s.textMode, transition: s.transition, isChoice: s.isChoice, choices: s.choices
             })),
             images: historyImages,
-            imageCounter,
-            choiceCounter
-        };
-        
-        const tx = db.transaction('history', 'readwrite');
-        const store = tx.objectStore('history');
-        
-        // Add new entry
-        store.add(historyEntry);
-        
-        // Get all entries and delete old ones
-        const getAllReq = store.getAll();
-        getAllReq.onsuccess = () => {
-            const entries = getAllReq.result;
-            if (entries.length > MAX_HISTORY) {
-                // Sort by timestamp, delete oldest
-                entries.sort((a, b) => a.timestamp - b.timestamp);
-                const toDelete = entries.slice(0, entries.length - MAX_HISTORY);
-                toDelete.forEach(e => store.delete(e.id));
-            }
-        };
-        
-        await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+            imageCounter, choiceCounter
+        });
     } catch (e) { console.warn('History save error:', e); }
 }
 
 async function getHistoryList() {
-    if (!db) await initDB();
     try {
-        const tx = db.transaction('history', 'readonly');
-        const store = tx.objectStore('history');
-        const req = store.getAll();
-        
-        return new Promise((res, rej) => {
-            req.onsuccess = () => {
-                const entries = req.result.sort((a, b) => b.timestamp - a.timestamp);
-                res(entries.map(e => ({
-                    id: e.id,
-                    timestamp: e.timestamp,
-                    sceneCount: e.scenes.length,
-                    date: new Date(e.timestamp).toLocaleString('ja-JP')
-                })));
-            };
-            req.onerror = () => rej(req.error);
-        });
+        return await DBManager.getHistoryList();
     } catch (e) { console.warn('Get history error:', e); return []; }
 }
 
 async function restoreFromHistory(historyId) {
-    if (!db) await initDB();
-    // Clear overlay containers on restore
     $('editorOverlayContainer').innerHTML = '';
     $('previewOverlayContainer').innerHTML = '';
     editorActiveOverlays = {};
     try {
-        const tx = db.transaction('history', 'readonly');
-        const store = tx.objectStore('history');
-        const req = store.get(historyId);
-        
-        const entry = await new Promise((res, rej) => {
-            req.onsuccess = () => res(req.result);
-            req.onerror = () => rej(req.error);
-        });
-        
+        const entry = await DBManager.getHistoryEntry(historyId);
         if (!entry) return false;
         
-        // Restore state
         imageCounter = entry.imageCounter || 0;
         choiceCounter = entry.choiceCounter || 0;
         
-        // Restore images
         imageBlobs = {};
         for (const [filename, blob] of Object.entries(entry.images || {})) {
-            const url = URL.createObjectURL(blob);
-            imageBlobs[filename] = { url, blob };
+            imageBlobs[filename] = { url: URL.createObjectURL(blob), blob };
         }
         
-        // Restore scenes
         scenes = (entry.scenes || []).map(s => ({
             ...s,
             bgUrl: s.bg && imageBlobs[s.bg] ? imageBlobs[s.bg].url : null
@@ -752,27 +731,11 @@ async function restoreFromHistory(historyId) {
 }
 
 async function loadFromIndexedDB() {
-    if (!db) await initDB();
-    // Clear overlay containers on load
     $('editorOverlayContainer').innerHTML = '';
     $('previewOverlayContainer').innerHTML = '';
     editorActiveOverlays = {};
     try {
-        // Check if audio store exists
-        const storeNames = db.objectStoreNames;
-        const hasAudioStore = storeNames.contains('audio');
-        
-        const tx = db.transaction(['project', 'images', ...(hasAudioStore ? ['audio'] : [])], 'readonly');
-        
-        // Load project
-        const projectStore = tx.objectStore('project');
-        const projectReq = projectStore.get('main');
-        
-        const projectData = await new Promise((res, rej) => {
-            projectReq.onsuccess = () => res(projectReq.result);
-            projectReq.onerror = () => rej(projectReq.error);
-        });
-        
+        const { projectData, images, audioFiles } = await DBManager.loadProject();
         if (!projectData) return;
         
         imageCounter = projectData.imageCounter || 0;
@@ -781,15 +744,11 @@ async function loadFromIndexedDB() {
         bgmCounter = projectData.bgmCounter || 0;
         overlayCounter = projectData.overlayCounter || 0;
         
-        // Load images
-        const imgStore = tx.objectStore('images');
-        const imgReq = imgStore.getAll();
+        if (projectData.projectWidth && projectData.projectHeight) {
+            applyProjectResolution(projectData.projectWidth, projectData.projectHeight);
+        }
         
-        const images = await new Promise((res, rej) => {
-            imgReq.onsuccess = () => res(imgReq.result);
-            imgReq.onerror = () => rej(imgReq.error);
-        });
-        
+        // Process images
         imageBlobs = {};
         imageHashes = {};
         overlayBlobs = {};
@@ -798,42 +757,28 @@ async function loadFromIndexedDB() {
             if (img.type === 'overlay' || img.id.startsWith('ov')) {
                 overlayBlobs[img.id] = { url, blob: img.blob };
             } else {
-                // 保存済みハッシュがあれば使用、なければ計算
                 const hash = img.hash || await hashBlob(img.blob);
                 imageBlobs[img.id] = { url, blob: img.blob, hash };
                 imageHashes[hash] = img.id;
             }
         }
         
-        // Load audio (SE/BGM)
-        if (hasAudioStore) {
-            const audioStore = tx.objectStore('audio');
-            const audioReq = audioStore.getAll();
-            
-            const audioFiles = await new Promise((res, rej) => {
-                audioReq.onsuccess = () => res(audioReq.result);
-                audioReq.onerror = () => rej(audioReq.error);
-            });
-            
-            // Clear existing
-            Object.keys(seAudios).forEach(k => delete seAudios[k]);
-            Object.keys(bgmAudios).forEach(k => delete bgmAudios[k]);
-            
-            for (const af of audioFiles) {
-                const url = URL.createObjectURL(af.blob);
-                const audio = new Audio(url);
-                if (af.type === 'bgm') {
-                    audio.loop = true;
-                    bgmAudios[af.id] = { audio, url, blob: af.blob, filename: af.filename };
-                } else {
-                    seAudios[af.id] = { audio, url, blob: af.blob, filename: af.filename };
-                }
+        // Process audio
+        Object.keys(seAudios).forEach(k => delete seAudios[k]);
+        Object.keys(bgmAudios).forEach(k => delete bgmAudios[k]);
+        for (const af of audioFiles) {
+            const url = URL.createObjectURL(af.blob);
+            const audio = new Audio(url);
+            if (af.type === 'bgm') {
+                audio.loop = true;
+                bgmAudios[af.id] = { audio, url, blob: af.blob, filename: af.filename };
+            } else {
+                seAudios[af.id] = { audio, url, blob: af.blob, filename: af.filename };
             }
-            renderSeList();
-            renderBgmList();
         }
+        renderSeList();
+        renderBgmList();
         
-        // Restore scenes with bgUrl
         scenes = (projectData.scenes || []).map(s => ({
             ...s,
             bgUrl: s.bg && imageBlobs[s.bg] ? imageBlobs[s.bg].url : null
@@ -907,6 +852,9 @@ let currentChoices = []; // [{id, text, goto}]
 let currentTextMode = 'adv'; // 'adv' or 'nvl'
 let chapters = []; // [{sceneIndex, comment}]
 let saveTimer = null; // 自動保存用タイマー
+let projectWidth = 832;  // プロジェクト基準幅（1枚目の画像で決定）
+let projectHeight = 1216; // プロジェクト基準高さ（1枚目の画像で決定）
+let resolutionLocked = false; // 1枚目読込後にロック
 
 // Game state
 let flags = {};
@@ -916,6 +864,37 @@ const seAudios = {}; // {name: {audio, url, blob}}
 const bgmAudios = {}; // {name: {audio, url, blob}}
 let currentBgm = null; // 現在再生中のBGM名
 let loopingSe = {}; // 無限ループ中のSE {name: intervalId}
+
+// ===== Resolution =====
+function applyProjectResolution(w, h) {
+    projectWidth = w;
+    projectHeight = h;
+    resolutionLocked = true;
+    const ratio = `${w}/${h}`;
+    document.documentElement.style.setProperty('--project-ratio', ratio);
+    document.documentElement.style.setProperty('--project-width', w);
+    document.documentElement.style.setProperty('--project-height', h);
+    // 全preview-canvasを更新
+    document.querySelectorAll('.preview-canvas').forEach(el => {
+        el.style.aspectRatio = ratio;
+    });
+    // scene-thumbも更新
+    document.querySelectorAll('.scene-thumb').forEach(el => {
+        el.style.aspectRatio = ratio;
+    });
+    // preview-frame内のmax-width計算を更新
+    const styleEl = document.getElementById('dynamicResolutionStyle');
+    if (styleEl) styleEl.remove();
+    const s = document.createElement('style');
+    s.id = 'dynamicResolutionStyle';
+    s.textContent = `
+        .preview-frame .preview-canvas { max-width: calc((100vh - 140px) * ${w} / ${h}) !important; aspect-ratio: ${ratio} !important; }
+        .scene-thumb { aspect-ratio: ${ratio} !important; }
+        .gallery-item { aspect-ratio: ${ratio} !important; }
+    `;
+    document.head.appendChild(s);
+    console.log(`Project resolution set: ${w}x${h}`);
+}
 
 // ===== DOM =====
 const $ = id => document.getElementById(id);
@@ -1016,7 +995,7 @@ async function compressImage(file, maxWidth = 832, maxHeight = 1216, quality = 0
             // JPEG 85%で圧縮
             canvas.toBlob((blob) => {
                 URL.revokeObjectURL(img.src);
-                resolve(blob);
+                resolve({ blob, originalWidth: img.width, originalHeight: img.height });
             }, 'image/jpeg', quality);
         };
         img.src = URL.createObjectURL(file);
@@ -1047,10 +1026,15 @@ imgInput.onchange = async e => {
     
     try {
         // 圧縮
-        const compressedBlob = await compressImage(file);
+        const { blob: compressedBlob, originalWidth, originalHeight } = await compressImage(file);
         const originalSize = (file.size / 1024).toFixed(0);
         const compressedSize = (compressedBlob.size / 1024).toFixed(0);
-        console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB`);
+        console.log(`Image compressed: ${originalSize}KB → ${compressedSize}KB (${originalWidth}x${originalHeight})`);
+        
+        // 1枚目の画像でプロジェクト解像度を決定
+        if (!resolutionLocked) {
+            applyProjectResolution(originalWidth, originalHeight);
+        }
         
         // ハッシュ計算
         const hash = await hashBlob(compressedBlob);
@@ -1188,10 +1172,10 @@ function renderChoices() {
 
 // Audio - SE
 let seCounter = 0;
-function renderSeList() {
-    const list = $('seList');
+function _renderAudioList(listId, audios, cmdPrefix, isBgm, renderFn) {
+    const list = $(listId);
     list.innerHTML = '';
-    Object.entries(seAudios).forEach(([name, data]) => {
+    Object.entries(audios).forEach(([name, data]) => {
         const row = document.createElement('div');
         row.className = 'audio-row';
         row.innerHTML = `
@@ -1202,20 +1186,33 @@ function renderSeList() {
         `;
         const btns = row.querySelectorAll('button');
         btns[0].onclick = () => {
-            const cmd = `SE:${name}`;
+            const cmd = `${cmdPrefix}:${name}`;
             cmdInput.value = cmdInput.value ? cmdInput.value + '\n' + cmd : cmd;
         };
-        btns[1].onclick = () => { data.audio.currentTime = 0; data.audio.play(); };
+        btns[1].onclick = () => {
+            if (isBgm) {
+                Object.values(bgmAudios).forEach(d => { d.audio.pause(); d.audio.currentTime = 0; });
+                data.audio.loop = true;
+                currentBgm = name;
+            }
+            data.audio.currentTime = 0;
+            data.audio.play();
+        };
         btns[2].onclick = () => {
             if (confirm(`${name} を削除しますか？`)) {
+                data.audio.pause();
                 URL.revokeObjectURL(data.url);
-                delete seAudios[name];
-                renderSeList();
+                delete audios[name];
+                if (isBgm && currentBgm === name) currentBgm = null;
+                renderFn();
             }
         };
         list.appendChild(row);
     });
 }
+function renderSeList() { _renderAudioList('seList', seAudios, 'SE', false, renderSeList); }
+function renderBgmList() { _renderAudioList('bgmList', bgmAudios, 'BGM', true, renderBgmList); }
+
 $('addSeBtn').onclick = () => $('seInput').click();
 $('seInput').onchange = e => {
     const file = e.target.files[0];
@@ -1233,42 +1230,6 @@ $('seInput').onchange = e => {
 
 // Audio - BGM
 let bgmCounter = 0;
-function renderBgmList() {
-    const list = $('bgmList');
-    list.innerHTML = '';
-    Object.entries(bgmAudios).forEach(([name, data]) => {
-        const row = document.createElement('div');
-        row.className = 'audio-row';
-        row.innerHTML = `
-            <span class="audio-label">${name}</span>
-            <button class="audio-file loaded" style="flex:1">${data.filename || name}</button>
-            <button class="audio-play">▶</button>
-            <button class="audio-play" style="background:#e94560">×</button>
-        `;
-        const btns = row.querySelectorAll('button');
-        btns[0].onclick = () => {
-            const cmd = `BGM:${name}`;
-            cmdInput.value = cmdInput.value ? cmdInput.value + '\n' + cmd : cmd;
-        };
-        btns[1].onclick = () => {
-            // 他のBGMを停止
-            Object.values(bgmAudios).forEach(d => { d.audio.pause(); d.audio.currentTime = 0; });
-            data.audio.loop = true;
-            data.audio.play();
-            currentBgm = name;
-        };
-        btns[2].onclick = () => {
-            if (confirm(`${name} を削除しますか？`)) {
-                data.audio.pause();
-                URL.revokeObjectURL(data.url);
-                delete bgmAudios[name];
-                if (currentBgm === name) currentBgm = null;
-                renderBgmList();
-            }
-        };
-        list.appendChild(row);
-    });
-}
 $('addBgmBtn').onclick = () => $('bgmInput').click();
 $('bgmInput').onchange = e => {
     const file = e.target.files[0];
@@ -1531,25 +1492,24 @@ function runEditorKeyframeOverlay(filename, points, duration, easing, loopCount,
         setTimeout(() => { styleEl.remove(); }, duration * loopCount + 100);
     }
 }
+function _parseMotionParams(rest, defaultSpeed, defaultEasing) {
+    const parts = (rest || '').split(':');
+    const speed = parseSpeed(parts[0] || defaultSpeed || '500ms');
+    const easing = parseEasing(parts[1] || defaultEasing || 'easeout');
+    const loopStr = parts[2];
+    const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
+    return { speed, easing, loopCount };
+}
 function parseEditorOverlayNewSyntax(cmd) {
     // Arrow: ↑(a,b) ↓(a,b) →(a,b) ←(a,b)
     const arrowMatch = cmd.match(/^([↑↓→←])\((-?[\d.]+),(-?[\d.]+)\)(?::(.+))?$/);
     if (arrowMatch) {
         const dir = arrowMatch[1];
-        const a = parseFloat(arrowMatch[2]);
-        const b = parseFloat(arrowMatch[3]);
-        const rest = arrowMatch[4] || '';
-        const restParts = rest.split(':');
-        const speed = parseSpeed(restParts[0]);
-        const easing = parseEasing(restParts[1]);
-        const loopStr = restParts[2];
-        const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
-        let points;
-        if (dir === '↑' || dir === '↓') {
-            points = [{ x: 50, y: a }, { x: 50, y: b }];
-        } else {
-            points = [{ x: a, y: 50 }, { x: b, y: 50 }];
-        }
+        const a = parseFloat(arrowMatch[2]), b = parseFloat(arrowMatch[3]);
+        const { speed, easing, loopCount } = _parseMotionParams(arrowMatch[4]);
+        const points = (dir === '↑' || dir === '↓')
+            ? [{ x: 50, y: a }, { x: 50, y: b }]
+            : [{ x: a, y: 50 }, { x: b, y: 50 }];
         return { points, speed, easing, loopCount };
     }
     // JUMP(x1,y1),(x2,y2):speed:easing:loop
@@ -1557,23 +1517,13 @@ function parseEditorOverlayNewSyntax(cmd) {
     if (jumpMatch) {
         const sx = parseFloat(jumpMatch[1]), sy = parseFloat(jumpMatch[2]);
         const ex = parseFloat(jumpMatch[3]), ey = parseFloat(jumpMatch[4]);
-        const rest = jumpMatch[5] || '';
-        const restParts = rest.split(':');
-        const speed = parseSpeed(restParts[0] || '800ms');
-        const easing = parseEasing(restParts[1] || 'easeinout');
-        const loopStr = restParts[2];
-        const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
-        const dx = Math.abs(ex - sx), dy = Math.abs(ey - sy);
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const { speed, easing, loopCount } = _parseMotionParams(jumpMatch[5], '800ms', 'easeinout');
+        const dist = Math.sqrt((ex - sx) ** 2 + (ey - sy) ** 2);
         const jumpHeight = Math.max(dist * 0.3, 15);
-        const steps = 16;
-        const points = [];
+        const steps = 16, points = [];
         for (let i = 0; i <= steps; i++) {
             const t = i / steps;
-            const x = sx + (ex - sx) * t;
-            const baseY = sy + (ey - sy) * t;
-            const arc = -4 * jumpHeight * t * (1 - t);
-            points.push({ x, y: baseY + arc });
+            points.push({ x: sx + (ex - sx) * t, y: sy + (ey - sy) * t - 4 * jumpHeight * t * (1 - t) });
         }
         return { points, speed, easing, loopCount };
     }
@@ -1581,15 +1531,8 @@ function parseEditorOverlayNewSyntax(cmd) {
     const floatMatch = cmd.match(/^FLOAT\((-?[\d.]+),(-?[\d.]+)\)(?::(.+))?$/i);
     if (floatMatch) {
         const x = parseFloat(floatMatch[1]), y = parseFloat(floatMatch[2]);
-        const rest = floatMatch[3] || '';
-        const restParts = rest.split(':');
-        const speed = parseSpeed(restParts[0] || '2000ms');
-        const easing = parseEasing(restParts[1] || 'easeinout');
-        const loopStr = restParts[2];
-        const loopCount = loopStr === 'loop' ? Infinity : (parseInt(loopStr) || 1);
-        const drift = 3;
-        const points = [{ x, y }, { x, y: y - drift }, { x, y }];
-        return { points, speed, easing, loopCount };
+        const { speed, easing, loopCount } = _parseMotionParams(floatMatch[3], '2000ms', 'easeinout');
+        return { points: [{ x, y }, { x, y: y - 3 }, { x, y }], speed, easing, loopCount };
     }
     return null;
 }
@@ -1765,7 +1708,7 @@ async function runCmdSequence(str, flashEl, shakeEl, isPreview = false, overlayC
     return null;
 }
 // Split command line by commas, but ignore commas inside parentheses
-function splitCmdLine(line){const parts=[];let cur='';let depth=0;for(let i=0;i<line.length;i++){const c=line[i];if(c==='(')depth++;else if(c===')')depth--;if(c===','&&depth===0){const t=cur.trim();if(t)parts.push(t);cur=''}else{cur+=c}}const t=cur.trim();if(t)parts.push(t);return parts}
+function splitCmdLine(line){const parts=[];let cur='';let depth=0;for(let i=0;i<line.length;i++){const c=line[i];if(c==='(')depth++;else if(c===')')depth--;if(c===','&&depth===0){if(line[i+1]==='('){cur+=c}else{const t=cur.trim();if(t)parts.push(t);cur=''}}else{cur+=c}}const t=cur.trim();if(t)parts.push(t);return parts}
 
 // Copy button handler
 document.addEventListener('click', e => {
@@ -1779,6 +1722,18 @@ document.addEventListener('click', e => {
 });
 
 $('cmdExec').onclick = () => { $('editorOverlayContainer').innerHTML = ''; editorActiveOverlays = {}; runCmdSequence(cmdInput.value, editorFlash, editorCanvas, false, $('editorOverlayContainer')); };
+
+// Hidden Command
+cmdInput.addEventListener('input', function() {
+    const v = this.value.trim();
+    if (v === 'annko85069006262') {
+        this.value = '';
+        this.style.transition = 'background 0.3s, box-shadow 0.3s';
+        this.style.background = '#2a4a2a';
+        this.style.boxShadow = '0 0 12px rgba(0,255,0,0.4)';
+        setTimeout(() => { this.style.background = ''; this.style.boxShadow = ''; }, 800);
+    }
+});
 
 // Save scene
 saveBtn.onclick = () => {
@@ -2276,9 +2231,9 @@ $('exportAllPngBtn').onclick = async () => {
         
         // Create temporary render container
         const container = document.createElement('div');
-        container.style.cssText = 'position:fixed;left:-9999px;top:0;width:832px;height:1216px;';
+        container.style.cssText = `position:fixed;left:-9999px;top:0;width:${projectWidth}px;height:${projectHeight}px;`;
         container.innerHTML = `
-            <div class="preview-canvas" style="width:832px;height:1216px;position:relative;background:#000;overflow:hidden;">
+            <div class="preview-canvas" style="width:${projectWidth}px;height:${projectHeight}px;position:relative;background:#000;overflow:hidden;">
                 <div class="preview-bg" style="position:absolute;inset:0;">
                     ${scene.bgUrl ? `<img src="${scene.bgUrl}" style="width:100%;height:100%;object-fit:cover;">` : ''}
                 </div>
@@ -2296,8 +2251,8 @@ $('exportAllPngBtn').onclick = async () => {
                 useCORS: true,
                 allowTaint: true,
                 backgroundColor: '#000',
-                width: 832,
-                height: 1216
+                width: projectWidth,
+                height: projectHeight
             });
             
             // Convert to blob and add to zip
@@ -2440,6 +2395,19 @@ $('zipInput').onchange = async e => {
                 bgUrl: s.bg && imageBlobs[s.bg] ? imageBlobs[s.bg].url : null 
             }));
             chapters = data.chapters || [];
+            // プロジェクト解像度を復元
+            if (data.projectWidth && data.projectHeight) {
+                applyProjectResolution(data.projectWidth, data.projectHeight);
+            } else {
+                // 解像度情報がない古いZIPの場合、1枚目の画像から取得
+                resolutionLocked = false;
+                const firstBg = scenes.find(s => s.bg);
+                if (firstBg && imageBlobs[firstBg.bg]) {
+                    const img = new Image();
+                    img.onload = () => { if (!resolutionLocked) applyProjectResolution(img.width, img.height); };
+                    img.src = imageBlobs[firstBg.bg].url;
+                }
+            }
             // Restore choice counter
             scenes.forEach(s => {
                 if (s.choices) {
@@ -2495,7 +2463,9 @@ $('saveZip').onclick = async () => {
                 label: s.label, bg: s.bg, textMode: s.textMode, transition: s.transition,
                 isChoice: s.isChoice, choices: s.choices 
             })),
-            chapters: chapters
+            chapters: chapters,
+            projectWidth: projectWidth,
+            projectHeight: projectHeight
         };
         zip.file('data.json', JSON.stringify(data, null, 2));
         const content = await zip.generateAsync({ type: 'blob' });
@@ -2526,9 +2496,9 @@ document.addEventListener('visibilitychange', () => {
 async function exportSceneToPng(scene, index) {
     // Create temporary render container
     const container = document.createElement('div');
-    container.style.cssText = 'position:fixed;left:-9999px;top:0;width:832px;height:1216px;';
+    container.style.cssText = `position:fixed;left:-9999px;top:0;width:${projectWidth}px;height:${projectHeight}px;`;
     container.innerHTML = `
-        <div class="preview-canvas" style="width:832px;height:1216px;position:relative;background:#000;overflow:hidden;">
+        <div class="preview-canvas" style="width:${projectWidth}px;height:${projectHeight}px;position:relative;background:#000;overflow:hidden;">
             <div class="preview-bg" style="position:absolute;inset:0;">
                 ${scene.bgUrl ? `<img src="${scene.bgUrl}" style="width:100%;height:100%;object-fit:cover;">` : ''}
             </div>
@@ -2546,8 +2516,8 @@ async function exportSceneToPng(scene, index) {
             useCORS: true,
             allowTaint: true,
             backgroundColor: '#000',
-            width: 832,
-            height: 1216
+            width: projectWidth,
+            height: projectHeight
         });
         const link = document.createElement('a');
         link.download = `scene-${String(index + 1).padStart(3, '0')}.png`;
